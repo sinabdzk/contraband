@@ -1,5 +1,5 @@
 // ===== UI MANAGER - All rendering and DOM interaction =====
-import { OPERATIONS, TERRITORIES, CREW_TYPES, UPGRADES, FRONTS, CONFIG } from './data.js';
+import { OPERATIONS, TERRITORIES, CREW_TYPES, UPGRADES, FRONTS, CONFIG, DILEMMAS, CREW_TRAITS, RANKS, MAINTENANCE } from './data.js';
 
 // SVG icon helper - returns inline <svg> using the sprite
 function ico(name, cls = '') {
@@ -25,6 +25,8 @@ export class UI {
     this.bindButtons();
     this.initAmbientParticles();
     this.renderAll();
+    this.updateRankDisplay();
+    this.updateRivalPanel();
   }
 
   // ===== NAVIGATION =====
@@ -85,8 +87,10 @@ export class UI {
     });
 
     document.getElementById('btn-recruit').addEventListener('click', () => {
-      this.engine.recruitCrew();
-      this.renderCrewTab();
+      const candidates = this.engine.generateCrewCandidates();
+      if (candidates.length > 0) {
+        this.showCrewCandidates();
+      }
     });
 
     document.getElementById('launder-slider').addEventListener('input', (e) => {
@@ -101,6 +105,8 @@ export class UI {
   update() {
     this.updateResources();
     this.updateRunningOps();
+    this.updateRankDisplay();
+    this.updateRivalPanel();
     this.renderTabContent();
   }
 
@@ -116,6 +122,14 @@ export class UI {
     const dirtyRate = e.getDirtyIncomeRate();
     document.getElementById('rate-dirty').textContent = (dirtyRate >= 0 ? '+' : '') + e.formatMoney(dirtyRate) + '/s';
     document.getElementById('rate-dirty').style.color = dirtyRate >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+
+    // Maintenance indicator
+    const maintEl = document.getElementById('maintenance-cost');
+    if (maintEl) {
+      const maintCost = e.getMaintenanceCost();
+      maintEl.textContent = maintCost > 0 ? ('-' + e.formatMoney(maintCost) + '/s upkeep') : '';
+      maintEl.style.display = maintCost > 0 ? 'block' : 'none';
+    }
 
     // Clean money
     document.getElementById('res-clean').textContent = e.formatMoney(s.resources.cleanMoney);
@@ -345,6 +359,14 @@ export class UI {
     const container = document.getElementById('crew-list');
     let html = '';
 
+    // Crew salary info
+    const maintCost = e.getMaintenanceCost();
+    if (s.crew.length > 0) {
+      html += `<div class="crew-maintenance-bar">`;
+      html += `<span>${ico('dirty','ico-color-dirty')} Crew Salaries: <strong>-${e.formatMoney(maintCost)}/s</strong></span>`;
+      html += `</div>`;
+    }
+
     for (const member of s.crew) {
       const typeData = CREW_TYPES.find(t => t.id === member.type);
       if (!typeData) continue;
@@ -355,16 +377,27 @@ export class UI {
       html += `<span class="crew-type ${typeData.color}">${typeData.name}</span>`;
       html += `</div>`;
 
+      // Traits
+      if (member.traits && member.traits.length > 0) {
+        html += `<div class="crew-traits">`;
+        for (const traitId of member.traits) {
+          const trait = CREW_TRAITS.find(t => t.id === traitId);
+          if (trait) {
+            html += `<span class="trait-badge" style="border-color:${trait.color};color:${trait.color}" title="${trait.desc}">${trait.name}</span>`;
+          }
+        }
+        html += `</div>`;
+      }
+
       html += `<div class="crew-stats">`;
       html += `<div class="crew-stat"><span class="crew-stat-label">Level</span><span class="crew-stat-value">${member.level}</span></div>`;
-      html += `<div class="crew-stat"><span class="crew-stat-label">XP</span><span class="crew-stat-value">${member.xp}/${member.xpToNext}</span></div>`;
       html += `<div class="crew-stat"><span class="crew-stat-label">Bonus</span><span class="crew-stat-value">${typeData.desc}</span></div>`;
       html += `<div class="crew-stat"><span class="crew-stat-label">Loyalty</span><span class="crew-stat-value">${Math.floor(member.loyalty)}%</span></div>`;
       html += `</div>`;
 
       html += `<div class="crew-loyalty-bar"><div class="crew-loyalty-fill" style="width:${member.loyalty}%; background:${member.loyalty > 60 ? 'var(--accent-green)' : member.loyalty > 30 ? 'var(--heat-mid)' : 'var(--accent-red)'}"></div></div>`;
 
-      html += `<div style="display:flex;gap:6px;">`;
+      html += `<div style="display:flex;gap:6px;margin-top:6px;">`;
       html += `<button class="btn btn-danger btn-sm" onclick="if(confirm('Dismiss ${member.name}?')){window._engine.dismissCrew(${member.id}); window._ui.renderCrewTab();}">Dismiss</button>`;
       html += `</div>`;
 
@@ -488,20 +521,25 @@ export class UI {
     const mins = Math.floor((playTimeS % 3600) / 60);
     const secs = playTimeS % 60;
 
+    const rank = e.getCurrentRank();
+
     const stats = [
+      { label: 'Rank', value: rank.title },
       { label: 'Player Level', value: s.level },
+      { label: 'Prestige', value: s.prestige?.count || 0 },
       { label: 'Total Dirty Earned', value: e.formatMoney(s.stats.totalDirtyEarned) },
       { label: 'Total Clean Earned', value: e.formatMoney(s.stats.totalCleanEarned) },
       { label: 'Current Dirty Cash', value: e.formatMoney(s.resources.dirtyMoney) },
       { label: 'Current Clean Cash', value: e.formatMoney(s.resources.cleanMoney) },
+      { label: 'Maintenance/s', value: e.formatMoney(e.getMaintenanceCost()) },
       { label: 'Total Operations', value: s.stats.totalOperations.toLocaleString() },
       { label: 'Crew Hired', value: s.stats.totalCrewHired },
       { label: 'Current Crew', value: s.crew.length },
       { label: 'Territories Controlled', value: Object.values(s.territories).filter(t => t.control >= 100).length + '/' + TERRITORIES.length },
-      { label: 'Upgrades Purchased', value: Object.values(s.upgrades).reduce((a, b) => a + b, 0) },
+      { label: 'Dilemmas Faced', value: s.stats.totalDilemmasFaced || 0 },
+      { label: 'Rivals Defeated', value: s.stats.totalRivalsDefeated || 0 },
       { label: 'Events Triggered', value: s.stats.totalEventsTriggered },
       { label: 'Business Fronts', value: s.laundering.fronts.length + '/' + FRONTS.length },
-      { label: 'Highest Level', value: s.stats.highestLevel },
       { label: 'Total Heat Gained', value: Math.floor(s.stats.totalHeatGained) },
       { label: 'Play Time', value: `${hrs}h ${mins}m ${secs}s` },
     ];
@@ -513,6 +551,18 @@ export class UI {
       html += `<div class="stat-card-value">${stat.value}</div>`;
       html += `</div>`;
     }
+
+    // Prestige section
+    html += `<div class="prestige-section">`;
+    html += `<h3>${ico('crown','ico-lg ico-color-gold')} Go Legitimate</h3>`;
+    html += `<p class="prestige-desc">Reset your empire and start fresh with permanent bonuses. Requires Level 25 and $1M clean money.</p>`;
+    html += `<p class="prestige-bonus">Current bonus: +${(s.prestige?.count || 0) * 10}% all income &amp; XP</p>`;
+    if (e.canPrestige()) {
+      html += `<button class="btn btn-prestige" onclick="if(confirm('Go legitimate? This resets everything but gives permanent +10% income/XP. Continue?')){window._engine.performPrestige(); window._ui.renderAll(); window._ui.renderStatsTab();}">GO LEGITIMATE (Prestige ${(s.prestige?.count || 0) + 1})</button>`;
+    } else {
+      html += `<button class="btn btn-prestige" disabled>Requires Lv 25 + $1M Clean</button>`;
+    }
+    html += `</div>`;
 
     document.getElementById('stats-panel').innerHTML = html;
   }
@@ -573,6 +623,126 @@ export class UI {
 
   hideModal() {
     document.getElementById('modal-overlay').classList.add('hidden');
+  }
+
+  // ===== DILEMMA SYSTEM =====
+
+  showDilemma(dilemma) {
+    const overlay = document.getElementById('dilemma-overlay');
+    if (!overlay) return;
+    const container = document.getElementById('dilemma-content');
+
+    let html = `<div class="dilemma-icon">${ico(dilemma.icon || 'alert', 'ico-xl')}</div>`;
+    html += `<h2 class="dilemma-title">${dilemma.name}</h2>`;
+    html += `<p class="dilemma-desc">${dilemma.desc}</p>`;
+    html += `<div class="dilemma-choices">`;
+
+    dilemma.choices.forEach((choice, i) => {
+      const riskColor = choice.risk === 'high' ? 'var(--accent-red)' : choice.risk === 'medium' ? 'var(--heat-mid)' : 'var(--accent-green)';
+      html += `<button class="dilemma-choice" onclick="window._engine.resolveDilemma(${i});">`;
+      html += `<div class="dilemma-choice-label">${choice.label}</div>`;
+      html += `<div class="dilemma-choice-desc">${choice.desc}</div>`;
+      html += `<span class="dilemma-risk" style="color:${riskColor}">${choice.risk.toUpperCase()} RISK</span>`;
+      html += `</button>`;
+    });
+
+    html += `</div>`;
+    container.innerHTML = html;
+    overlay.classList.remove('hidden');
+  }
+
+  hideDilemma() {
+    const overlay = document.getElementById('dilemma-overlay');
+    if (overlay) overlay.classList.add('hidden');
+  }
+
+  // ===== CREW CANDIDATE SELECTION =====
+
+  showCrewCandidates() {
+    const s = this.state;
+    const e = this.engine;
+    if (!s.crewCandidates || s.crewCandidates.length === 0) return;
+
+    const cost = e.getRecruitCost();
+    let html = `<h3 class="recruit-title">Choose Your Recruit</h3>`;
+    html += `<p class="recruit-cost">Recruitment cost: <strong>${e.formatMoney(cost)}</strong></p>`;
+    html += `<div class="candidate-grid">`;
+
+    s.crewCandidates.forEach((c, i) => {
+      const type = CREW_TYPES.find(t => t.id === c.type);
+      html += `<div class="candidate-card" onclick="window._engine.hireCandidate(${i}); window._ui.hideModal(); window._ui.renderCrewTab();">`;
+      html += `<div class="candidate-header">`;
+      html += `<span class="candidate-name">${c.name}</span>`;
+      html += `<span class="crew-type ${type?.color || ''}">${type?.name || c.type}</span>`;
+      html += `</div>`;
+      html += `<div class="candidate-stats">`;
+      html += `<div>Level: <strong>${c.level}</strong></div>`;
+      html += `<div>Loyalty: <strong>${c.loyalty}%</strong></div>`;
+      html += `<div>Bonus: <em>${type?.desc || ''}</em></div>`;
+      html += `</div>`;
+      if (c.traits && c.traits.length > 0) {
+        html += `<div class="candidate-traits">`;
+        for (const traitId of c.traits) {
+          const trait = CREW_TRAITS.find(t => t.id === traitId);
+          if (trait) {
+            html += `<span class="trait-badge" style="border-color:${trait.color};color:${trait.color}" title="${trait.desc}">${trait.name}</span>`;
+          }
+        }
+        html += `</div>`;
+      } else {
+        html += `<div class="candidate-traits"><span class="trait-badge" style="border-color:#666;color:#666">No traits</span></div>`;
+      }
+      html += `<button class="btn btn-primary btn-sm candidate-hire">HIRE</button>`;
+      html += `</div>`;
+    });
+
+    html += `</div>`;
+    html += `<button class="btn btn-sm" onclick="window._ui.hideModal();" style="margin-top:12px;">Cancel</button>`;
+
+    this.showModal('Recruitment', html);
+  }
+
+  // ===== RIVAL PANEL =====
+
+  updateRivalPanel() {
+    const s = this.state;
+    const e = this.engine;
+    const panel = document.getElementById('rival-panel');
+    if (!panel || !s.rival) return;
+
+    const riv = s.rival;
+    const powerPct = Math.min(100, riv.power);
+    const powerColor = riv.power > 60 ? 'var(--accent-red)' : riv.power > 30 ? 'var(--heat-mid)' : 'var(--accent-green)';
+    const cost = Math.floor(1000 + riv.power * 200);
+    const influenceCost = Math.floor(2 + riv.power * 0.1);
+    const canAttack = s.resources.dirtyMoney >= cost && s.resources.influence >= influenceCost;
+
+    let html = `<div class="rival-name">${ico('target','ico-color-red')} ${riv.name}</div>`;
+    html += `<div class="rival-power-bar"><div class="rival-power-fill" style="width:${powerPct}%;background:${powerColor}"></div></div>`;
+    html += `<div class="rival-info">Power: ${Math.floor(riv.power)}</div>`;
+    if (riv.truceTicks > 0) {
+      html += `<div class="rival-truce">${ico('shield','ico-color-green')} Truce: ${riv.truceTicks}s</div>`;
+    } else {
+      html += `<button class="btn btn-danger btn-xs rival-attack-btn" ${canAttack ? '' : 'disabled'} onclick="window._engine.attackRival(); window._ui.updateRivalPanel();">`;
+      html += `${ico('zap')} STRIKE ($${e.formatNum(cost)})`;
+      html += `</button>`;
+    }
+    if (riv.defeated > 0) {
+      html += `<div class="rival-defeated">${ico('crown','ico-color-gold')} Defeated: ${riv.defeated}</div>`;
+    }
+
+    panel.innerHTML = html;
+  }
+
+  // ===== RANK DISPLAY =====
+
+  updateRankDisplay() {
+    const e = this.engine;
+    const rankEl = document.getElementById('player-rank');
+    if (!rankEl) return;
+    const rank = e.getCurrentRank();
+    rankEl.textContent = rank.title;
+    rankEl.title = rank.desc;
   }
 
   // ===== FLOATING NUMBERS =====

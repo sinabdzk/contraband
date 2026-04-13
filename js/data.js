@@ -589,3 +589,649 @@ function formatNum(n) {
   if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
   return n.toFixed(0);
 }
+
+// ============================================================
+// DILEMMA EVENTS — Interactive choices with real consequences
+// ============================================================
+export const DILEMMAS = [
+  {
+    id: 'snitch_caught',
+    name: 'RAT IN THE CREW',
+    desc: 'Your enforcers caught a crew member passing info to an undercover cop. The streets are watching — how you handle this defines your empire.',
+    icon: 'alert',
+    condition: (s) => s.crew.length >= 2 && s.resources.heat >= 15,
+    chance: 0.012,
+    choices: [
+      {
+        label: 'Make an Example',
+        desc: 'Remove the traitor permanently. Crew loyalty rises, but you lose a member.',
+        risk: 'high',
+        effect: (s) => {
+          const idx = s.crew.findIndex(c => c.loyalty === Math.min(...s.crew.map(x => x.loyalty)));
+          if (idx >= 0) s.crew.splice(idx, 1);
+          s.crew.forEach(c => { c.loyalty = Math.min(100, c.loyalty + 15); });
+          s.resources.heat = Math.max(0, s.resources.heat - 10);
+          return { msg: 'The traitor is gone. Nobody else will talk.', type: 'danger' };
+        },
+      },
+      {
+        label: 'Feed False Intel',
+        desc: 'Use the rat to mislead investigators. Could backfire spectacularly.',
+        risk: 'medium',
+        effect: (s) => {
+          if (Math.random() < 0.55) {
+            s.resources.heat = Math.max(0, s.resources.heat - 25);
+            return { msg: 'Investigators chased a ghost. Heat dropped significantly.', type: 'success' };
+          } else {
+            s.resources.heat = Math.min(100, s.resources.heat + 15);
+            return { msg: 'They saw through it. Heat spiked hard.', type: 'danger' };
+          }
+        },
+      },
+      {
+        label: 'Show Mercy',
+        desc: 'Let them walk. Word spreads — respect gained, but crew doubts you.',
+        risk: 'low',
+        effect: (s) => {
+          s.resources.influence += 5;
+          s.crew.forEach(c => { c.loyalty = Math.max(10, c.loyalty - 8); });
+          return { msg: 'Influence gained. But your crew whispers about weakness.', type: 'warning' };
+        },
+      },
+    ],
+  },
+  {
+    id: 'corrupt_cop',
+    name: 'DIRTY BADGE',
+    desc: 'Detective Rodriguez offers protection — $5,000/month and he looks the other way. Or you could make HIM work for you...',
+    icon: 'shield',
+    condition: (s) => s.level >= 5 && s.resources.dirtyMoney >= 5000,
+    chance: 0.018,
+    choices: [
+      {
+        label: 'Accept the Deal',
+        desc: 'Pay $5,000 now. Heat drops, future raids less likely.',
+        risk: 'low',
+        effect: (s) => {
+          s.resources.dirtyMoney -= 5000;
+          s.resources.heat = Math.max(0, s.resources.heat - 20);
+          return { msg: 'Detective Rodriguez is on retainer. Operations run smoother.', type: 'success' };
+        },
+      },
+      {
+        label: 'Refuse',
+        desc: 'Never deal with cops. Keep your independence.',
+        risk: 'low',
+        effect: (s) => {
+          s.resources.heat += 5;
+          return { msg: 'Rodriguez didn\'t handle rejection well. Heat +5.', type: 'warning' };
+        },
+      },
+      {
+        label: 'Blackmail Him',
+        desc: 'You recorded the conversation. If it works — massive influence.',
+        risk: 'high',
+        effect: (s) => {
+          if (Math.random() < 0.40) {
+            s.resources.influence += 15;
+            s.resources.heat = Math.max(0, s.resources.heat - 15);
+            return { msg: 'Now HE works for you. Massive leverage gained.', type: 'success' };
+          } else {
+            s.resources.heat += 25;
+            const loss = Math.floor(s.resources.dirtyMoney * 0.15);
+            s.resources.dirtyMoney = Math.max(0, s.resources.dirtyMoney - loss);
+            return { msg: 'He had backup. Raid incoming. Lost $' + formatNum(loss) + '.', type: 'danger' };
+          }
+        },
+      },
+    ],
+  },
+  {
+    id: 'shipment_seized',
+    name: 'BORDER INTERCEPT',
+    desc: 'Customs seized your shipment at the border crossing. $15K in product sitting in impound. Time is running out.',
+    icon: 'supplies',
+    condition: (s) => s.level >= 8 && s.resources.supplies >= 10,
+    chance: 0.018,
+    choices: [
+      {
+        label: 'Bribe Customs',
+        desc: 'Pay $8,000 to release the shipment. Safe and reliable.',
+        risk: 'low',
+        effect: (s) => {
+          if (s.resources.dirtyMoney >= 8000) {
+            s.resources.dirtyMoney -= 8000;
+            s.resources.supplies += 15;
+            return { msg: 'Package released. Cost $8K but product recovered.', type: 'success' };
+          }
+          return { msg: 'Not enough cash. Product seized permanently.', type: 'danger' };
+        },
+      },
+      {
+        label: 'Cut Losses',
+        desc: 'Write it off and focus forward. Lose some supplies.',
+        risk: 'low',
+        effect: (s) => {
+          const loss = Math.floor(s.resources.supplies * 0.2);
+          s.resources.supplies = Math.max(0, s.resources.supplies - loss);
+          return { msg: `Lost ${loss} supplies. Painful but contained.`, type: 'warning' };
+        },
+      },
+      {
+        label: 'Raid the Impound',
+        desc: 'Send your crew in. Recover everything or lose big.',
+        risk: 'high',
+        effect: (s) => {
+          if (Math.random() < 0.35) {
+            s.resources.supplies += 30;
+            s.resources.dirtyMoney += 5000;
+            s.resources.heat += 15;
+            return { msg: 'Clean extraction! Recovered everything plus extra. Heat +15.', type: 'success' };
+          } else {
+            s.resources.heat += 30;
+            s.resources.dirtyMoney = Math.max(0, s.resources.dirtyMoney - Math.floor(s.resources.dirtyMoney * 0.1));
+            return { msg: 'Ambush. Heavy police response. Heat +30.', type: 'danger' };
+          }
+        },
+      },
+    ],
+  },
+  {
+    id: 'crew_mutiny',
+    name: 'CREW DEMANDS',
+    desc: 'Your crew is restless. They want better pay, better conditions — or else. Tension is visible.',
+    icon: 'crew',
+    condition: (s) => s.crew.length >= 3 && s.crew.some(c => c.loyalty < 50),
+    chance: 0.022,
+    choices: [
+      {
+        label: 'Hand Out Bonuses',
+        desc: '$3,000 per crew member. Buy their happiness.',
+        risk: 'low',
+        effect: (s) => {
+          const cost = s.crew.length * 3000;
+          if (s.resources.dirtyMoney >= cost) {
+            s.resources.dirtyMoney -= cost;
+            s.crew.forEach(c => { c.loyalty = Math.min(100, c.loyalty + 25); });
+            return { msg: `Paid $${formatNum(cost)} in bonuses. Crew is satisfied... for now.`, type: 'success' };
+          }
+          s.crew.forEach(c => { c.loyalty = Math.max(10, c.loyalty - 15); });
+          return { msg: 'Couldn\'t afford it. Morale collapsed.', type: 'danger' };
+        },
+      },
+      {
+        label: 'Intimidate Them',
+        desc: 'Remind everyone who\'s in charge. It might work — or backfire.',
+        risk: 'medium',
+        effect: (s) => {
+          if (Math.random() < 0.5) {
+            s.crew.forEach(c => { c.loyalty = Math.min(100, c.loyalty + 10); });
+            return { msg: 'They fell in line. Respect through fear.', type: 'warning' };
+          } else {
+            const weakest = [...s.crew].sort((a, b) => a.loyalty - b.loyalty)[0];
+            s.crew = s.crew.filter(c => c.id !== weakest.id);
+            s.crew.forEach(c => { c.loyalty = Math.max(10, c.loyalty - 10); });
+            return { msg: `${weakest.name} walked out. Others are shaken.`, type: 'danger' };
+          }
+        },
+      },
+      {
+        label: 'Promote the Loudest',
+        desc: 'Make the ringleader a lieutenant. Co-opt dissent.',
+        risk: 'low',
+        effect: (s) => {
+          const leader = [...s.crew].sort((a, b) => b.level - a.level)[0];
+          leader.loyalty = 100;
+          leader.level += 1;
+          s.resources.influence += 3;
+          s.crew.filter(c => c.id !== leader.id).forEach(c => { c.loyalty = Math.min(100, c.loyalty + 5); });
+          return { msg: `${leader.name} promoted to lieutenant. Crisis averted.`, type: 'success' };
+        },
+      },
+    ],
+  },
+  {
+    id: 'witness_problem',
+    name: 'LOOSE END',
+    desc: 'Someone witnessed your latest operation. They\'re two phone calls away from blowing your cover.',
+    icon: 'target',
+    condition: (s) => s.stats.totalOperations >= 20 && s.resources.heat >= 25,
+    chance: 0.018,
+    choices: [
+      {
+        label: 'Pay for Silence',
+        desc: 'Offer $10,000. Money solves most problems.',
+        risk: 'low',
+        effect: (s) => {
+          if (s.resources.dirtyMoney >= 10000) {
+            s.resources.dirtyMoney -= 10000;
+            return { msg: 'Money talked. Problem solved.', type: 'success' };
+          }
+          s.resources.heat += 15;
+          return { msg: 'Couldn\'t pay. They went to the cops. Heat +15.', type: 'danger' };
+        },
+      },
+      {
+        label: 'Relocate Them',
+        desc: 'Spend 5 influence to have them moved far away.',
+        risk: 'low',
+        effect: (s) => {
+          if (s.resources.influence >= 5) {
+            s.resources.influence -= 5;
+            return { msg: 'Witness relocated to another state. Clean resolution.', type: 'success' };
+          }
+          s.resources.heat += 10;
+          return { msg: 'Not enough connections. Witness talked. Heat +10.', type: 'warning' };
+        },
+      },
+      {
+        label: 'Call Their Bluff',
+        desc: 'Do nothing. Maybe they\'re afraid. Maybe they\'re not.',
+        risk: 'medium',
+        effect: (s) => {
+          if (Math.random() < 0.4) {
+            return { msg: 'They were too scared to talk. Nothing happened.', type: 'success' };
+          } else {
+            s.resources.heat += 20;
+            return { msg: 'They went straight to the precinct. Heat +20.', type: 'danger' };
+          }
+        },
+      },
+    ],
+  },
+  {
+    id: 'political_deal',
+    name: 'CITY HALL WHISPERS',
+    desc: 'A city councilman approaches you at a private dinner. He can make problems disappear — zoning, inspectors, even warrants.',
+    icon: 'crown',
+    condition: (s) => s.level >= 10 && s.resources.cleanMoney >= 15000,
+    chance: 0.012,
+    choices: [
+      {
+        label: 'Full Partnership',
+        desc: 'Invest $50K clean. Long-term: cheaper territories, massive influence.',
+        risk: 'medium',
+        effect: (s) => {
+          if (s.resources.cleanMoney >= 50000) {
+            s.resources.cleanMoney -= 50000;
+            s.resources.influence += 20;
+            s.resources.heat = Math.max(0, s.resources.heat - 20);
+            for (const t of Object.values(s.territories)) t.control = Math.min(100, t.control + 10);
+            return { msg: 'The councilman is in your pocket. Territories boosted.', type: 'success' };
+          }
+          return { msg: 'Not enough clean money. Deal fell through.', type: 'warning' };
+        },
+      },
+      {
+        label: 'One-Time Favor',
+        desc: 'Pay $15K clean for immediate heat reduction.',
+        risk: 'low',
+        effect: (s) => {
+          if (s.resources.cleanMoney >= 15000) {
+            s.resources.cleanMoney -= 15000;
+            s.resources.heat = Math.max(0, s.resources.heat - 30);
+            s.resources.influence += 5;
+            return { msg: 'Papers got "lost". Heat reduced significantly.', type: 'success' };
+          }
+          return { msg: 'Can\'t afford it. Opportunity wasted.', type: 'warning' };
+        },
+      },
+      {
+        label: 'Walk Away',
+        desc: 'Politicians are unreliable. Pass.',
+        risk: 'low',
+        effect: () => {
+          return { msg: 'Sometimes the safest play is no play.', type: 'info' };
+        },
+      },
+    ],
+  },
+  {
+    id: 'rival_envoy',
+    name: 'RIVAL\'S ENVOY',
+    desc: 'A messenger from the rival cartel arrives under a white flag. They want to negotiate territory boundaries.',
+    icon: 'territory',
+    condition: (s) => Object.keys(s.territories).length >= 2 && s.rival && s.rival.power >= 20,
+    chance: 0.018,
+    choices: [
+      {
+        label: 'Accept Truce',
+        desc: 'Agree to boundaries. Rival freezes operations temporarily.',
+        risk: 'low',
+        effect: (s) => {
+          s.rival.aggression = Math.max(0, s.rival.aggression - 0.3);
+          s.rival.truceTicks = 120;
+          s.resources.influence += 5;
+          return { msg: 'Peace signed. Both sides stand down. For now.', type: 'success' };
+        },
+      },
+      {
+        label: 'Reject and Provoke',
+        desc: 'Send the envoy back with a message. War is coming.',
+        risk: 'medium',
+        effect: (s) => {
+          s.rival.aggression = Math.min(1.0, s.rival.aggression + 0.3);
+          s.resources.influence += 10;
+          return { msg: 'Message sent. The streets respect boldness. War imminent.', type: 'warning' };
+        },
+      },
+      {
+        label: 'Capture the Envoy',
+        desc: 'Take them for intel. Expect massive retaliation.',
+        risk: 'high',
+        effect: (s) => {
+          s.rival.power = Math.max(0, s.rival.power - 15);
+          s.rival.aggression = 1.0;
+          s.resources.heat += 10;
+          return { msg: 'Intel extracted. Rival weakened but furious.', type: 'danger' };
+        },
+      },
+    ],
+  },
+  {
+    id: 'weapons_deal',
+    name: 'ARMS MERCHANT',
+    desc: 'An international weapons dealer is in town for 24 hours. Military-grade hardware at steep discount.',
+    icon: 'zap',
+    condition: (s) => s.level >= 12 && s.resources.dirtyMoney >= 15000,
+    chance: 0.012,
+    choices: [
+      {
+        label: 'Buy the Arsenal',
+        desc: '$50K for heavy weapons. Crew levels up, rival threat reduced.',
+        risk: 'medium',
+        effect: (s) => {
+          if (s.resources.dirtyMoney >= 50000) {
+            s.resources.dirtyMoney -= 50000;
+            s.resources.supplies += 40;
+            s.crew.forEach(c => { c.level += 1; c.loyalty = Math.min(100, c.loyalty + 10); });
+            s.resources.heat += 8;
+            if (s.rival) s.rival.power = Math.max(0, s.rival.power - 10);
+            return { msg: 'Armed to the teeth. Crew leveled up. Heat +8.', type: 'success' };
+          }
+          return { msg: 'Not enough cash. The dealer moved on.', type: 'warning' };
+        },
+      },
+      {
+        label: 'Small Purchase',
+        desc: '$15K for a practical batch. No frills.',
+        risk: 'low',
+        effect: (s) => {
+          if (s.resources.dirtyMoney >= 15000) {
+            s.resources.dirtyMoney -= 15000;
+            s.resources.supplies += 15;
+            return { msg: 'Decent stockpile acquired. Practical.', type: 'success' };
+          }
+          return { msg: 'Not enough cash.', type: 'warning' };
+        },
+      },
+      {
+        label: 'Tip the Feds',
+        desc: 'Betray the dealer for goodwill with law enforcement.',
+        risk: 'low',
+        effect: (s) => {
+          s.resources.heat = Math.max(0, s.resources.heat - 25);
+          s.resources.influence += 8;
+          return { msg: 'Dealer arrested. Cops owe you one. Major heat drop.', type: 'info' };
+        },
+      },
+    ],
+  },
+  {
+    id: 'inside_job',
+    name: 'THE VAULT',
+    desc: 'A bank insider contacts you with access codes. This could be the score of a lifetime — or the end of everything.',
+    icon: 'launder',
+    condition: (s) => s.level >= 15 && s.crew.length >= 3,
+    chance: 0.010,
+    choices: [
+      {
+        label: 'Hit the Main Vault',
+        desc: 'All-in. Potential $200K+ but could lose crew members.',
+        risk: 'high',
+        effect: (s) => {
+          const crewPower = s.crew.reduce((sum, c) => sum + c.level, 0);
+          if (Math.random() < Math.min(0.7, 0.3 + crewPower * 0.02)) {
+            const payout = 150000 + Math.floor(Math.random() * 100000);
+            s.resources.dirtyMoney += payout;
+            s.resources.heat += 20;
+            return { msg: `SCORE! $${formatNum(payout)} from the vault! Heat +20.`, type: 'success' };
+          } else {
+            s.resources.heat += 35;
+            s.crew.splice(Math.floor(Math.random() * s.crew.length), 1);
+            return { msg: 'Botched. Lost a crew member. Heat +35. Devastating.', type: 'danger' };
+          }
+        },
+      },
+      {
+        label: 'Safety Deposits Only',
+        desc: 'Lower risk. $30K-50K potential.',
+        risk: 'medium',
+        effect: (s) => {
+          if (Math.random() < 0.75) {
+            const payout = 30000 + Math.floor(Math.random() * 20000);
+            s.resources.dirtyMoney += payout;
+            s.resources.heat += 8;
+            return { msg: `Clean job. $${formatNum(payout)} and minimal footprint.`, type: 'success' };
+          }
+          s.resources.heat += 15;
+          return { msg: 'Silent alarm. Escaped but heat +15.', type: 'warning' };
+        },
+      },
+      {
+        label: 'Sell the Intel',
+        desc: 'Sell codes to another crew. $25K guaranteed, zero risk.',
+        risk: 'low',
+        effect: (s) => {
+          s.resources.dirtyMoney += 25000;
+          s.resources.influence += 5;
+          return { msg: '$25K for zero risk. Others owe you one.', type: 'success' };
+        },
+      },
+    ],
+  },
+  {
+    id: 'drug_turf',
+    name: 'DISTRIBUTION WAR',
+    desc: 'Two gangs are fighting over a lucrative distribution corner. Both want your backing. Choose wisely.',
+    icon: 'territory',
+    condition: (s) => s.level >= 6 && Object.keys(s.territories).length >= 1,
+    chance: 0.018,
+    choices: [
+      {
+        label: 'Back the Eastside',
+        desc: 'Supply weapons. Gain territory + dirty money. Heat +10.',
+        risk: 'medium',
+        effect: (s) => {
+          s.resources.dirtyMoney += 8000;
+          s.resources.heat += 10;
+          for (const t of Object.values(s.territories)) t.control = Math.min(100, t.control + 5);
+          return { msg: 'Eastside won. Your territory solidified.', type: 'success' };
+        },
+      },
+      {
+        label: 'Back the Westside',
+        desc: 'They have better connections. Gain influence + supplies.',
+        risk: 'low',
+        effect: (s) => {
+          s.resources.influence += 8;
+          s.resources.supplies += 15;
+          return { msg: 'New supply line established through Westside connections.', type: 'success' };
+        },
+      },
+      {
+        label: 'Play Both Sides',
+        desc: 'Sell to both. Double profit but huge risk if discovered.',
+        risk: 'high',
+        effect: (s) => {
+          s.resources.dirtyMoney += 15000;
+          if (Math.random() < 0.4) {
+            s.resources.heat += 15;
+            for (const t of Object.values(s.territories)) t.control = Math.max(0, t.control - 8);
+            return { msg: 'They found out. BOTH sides hostile. Territory damaged.', type: 'danger' };
+          }
+          return { msg: 'Double profit, nobody suspects. Perfectly played.', type: 'success' };
+        },
+      },
+    ],
+  },
+  {
+    id: 'laundering_crisis',
+    name: 'PAPER TRAIL',
+    desc: 'Federal auditors are tracking a money trail to one of your business fronts. Clock is ticking.',
+    icon: 'clean',
+    condition: (s) => s.laundering.fronts.length >= 1 && s.resources.cleanMoney >= 10000,
+    chance: 0.015,
+    choices: [
+      {
+        label: 'Destroy Records',
+        desc: 'Burn everything. Lose 15% clean money but kill the trail.',
+        risk: 'medium',
+        effect: (s) => {
+          const loss = Math.floor(s.resources.cleanMoney * 0.15);
+          s.resources.cleanMoney = Math.max(0, s.resources.cleanMoney - loss);
+          return { msg: `Records destroyed. Lost $${formatNum(loss)} clean. Trail is cold.`, type: 'warning' };
+        },
+      },
+      {
+        label: 'Hire Lawyers',
+        desc: '$30,000 clean for top-tier legal defense.',
+        risk: 'low',
+        effect: (s) => {
+          if (s.resources.cleanMoney >= 30000) {
+            s.resources.cleanMoney -= 30000;
+            s.resources.influence += 5;
+            return { msg: 'Lawyers buried it. Case will take years.', type: 'success' };
+          }
+          s.resources.heat += 15;
+          return { msg: 'Can\'t afford lawyers. Auditors reported findings. Heat +15.', type: 'danger' };
+        },
+      },
+      {
+        label: 'Bribe the Auditor',
+        desc: '50/50 shot. Works or everything escalates.',
+        risk: 'high',
+        effect: (s) => {
+          if (Math.random() < 0.5) {
+            s.resources.dirtyMoney = Math.max(0, s.resources.dirtyMoney - 5000);
+            return { msg: 'Auditor looked the other way. $5K well spent.', type: 'success' };
+          }
+          s.resources.heat += 25;
+          const loss = Math.floor(s.resources.cleanMoney * 0.2);
+          s.resources.cleanMoney = Math.max(0, s.resources.cleanMoney - loss);
+          return { msg: 'Auditor refused AND reported it. Lost $' + formatNum(loss) + '. Heat spiked.', type: 'danger' };
+        },
+      },
+    ],
+  },
+  {
+    id: 'prison_break',
+    name: 'JAILBREAK REQUEST',
+    desc: 'A former associate in maximum security has intel on a hidden $500K stash. He wants out.',
+    icon: 'lock',
+    condition: (s) => s.level >= 18 && s.crew.length >= 4,
+    chance: 0.008,
+    choices: [
+      {
+        label: 'Organize the Break',
+        desc: 'Costs $40K and high heat. If it works, $500K + a loyal veteran crew member.',
+        risk: 'high',
+        effect: (s) => {
+          if (s.resources.dirtyMoney >= 40000) {
+            s.resources.dirtyMoney -= 40000;
+            if (Math.random() < 0.5) {
+              s.resources.dirtyMoney += 500000;
+              s.resources.heat += 25;
+              return { msg: 'He\'s out. The stash was real. $500K recovered. Heat +25.', type: 'success' };
+            }
+            s.resources.heat += 40;
+            return { msg: 'Break failed. $40K gone. Heat +40. Disaster.', type: 'danger' };
+          }
+          return { msg: 'Can\'t afford the operation.', type: 'warning' };
+        },
+      },
+      {
+        label: 'Bribe the Warden',
+        desc: '$80K clean for a "medical transfer". Lower risk.',
+        risk: 'medium',
+        effect: (s) => {
+          if (s.resources.cleanMoney >= 80000) {
+            s.resources.cleanMoney -= 80000;
+            s.resources.dirtyMoney += 500000;
+            s.resources.heat += 5;
+            return { msg: 'Quiet transfer. Stash recovered. Professional work. Heat +5.', type: 'success' };
+          }
+          return { msg: 'Not enough clean money for the bribe.', type: 'warning' };
+        },
+      },
+      {
+        label: 'Ignore the Request',
+        desc: 'Too risky. Walk away. He\'ll understand... or he won\'t.',
+        risk: 'low',
+        effect: (s) => {
+          if (Math.random() < 0.3) {
+            s.resources.heat += 5;
+            return { msg: 'He talked to cops out of spite. Heat +5.', type: 'warning' };
+          }
+          return { msg: 'Nothing happened. The intel stays locked up.', type: 'info' };
+        },
+      },
+    ],
+  },
+];
+
+// ============================================================
+// CREW TRAITS — Unique characteristics for each crew member
+// ============================================================
+export const CREW_TRAITS = [
+  { id: 'loyal', name: 'Loyal', desc: 'Loyalty decays 50% slower', color: '#4ade80', icon: 'shield' },
+  { id: 'greedy', name: 'Greedy', desc: 'Takes $50/s from income', color: '#fbbf24', icon: 'dirty' },
+  { id: 'fearless', name: 'Fearless', desc: '+12% op speed', color: '#f87171', icon: 'zap' },
+  { id: 'paranoid', name: 'Paranoid', desc: '-10% heat gain', color: '#a78bfa', icon: 'heat' },
+  { id: 'connected', name: 'Connected', desc: '+2 influence per op', color: '#38bdf8', icon: 'influence' },
+  { id: 'violent', name: 'Violent', desc: '+15% territory speed, +5% heat', color: '#ef4444', icon: 'target' },
+  { id: 'addict', name: 'Addict', desc: 'Loyalty decays 2x faster', color: '#9ca3af', icon: 'alert' },
+  { id: 'genius', name: 'Genius', desc: '+20% XP gain', color: '#818cf8', icon: 'upgrades' },
+  { id: 'ghost', name: 'Ghost', desc: '-15% heat from ops', color: '#6b7280', icon: 'stealth' },
+  { id: 'leader', name: 'Natural Leader', desc: 'All crew +5% loyalty/tick', color: '#fcd34d', icon: 'crown' },
+  { id: 'bruiser', name: 'Bruiser', desc: '+10% rival attack damage', color: '#dc2626', icon: 'crew' },
+  { id: 'negotiator', name: 'Negotiator', desc: '-15% recruit cost', color: '#10b981', icon: 'clean' },
+];
+
+// ============================================================
+// EMPIRE RANKS — Progression milestones
+// ============================================================
+export const RANKS = [
+  { level: 1,  title: 'Street Rat',      desc: 'Nobody. Invisible. Hungry.' },
+  { level: 4,  title: 'Corner Boy',      desc: 'You run a block. People are starting to notice.' },
+  { level: 8,  title: 'Hustler',         desc: 'The streets know your name.' },
+  { level: 13, title: 'Made Man',        desc: 'Respected. Connected. Dangerous.' },
+  { level: 18, title: 'Underboss',       desc: 'You command a crew. The city is your playground.' },
+  { level: 23, title: 'Boss',            desc: 'An empire builder. Fear follows you.' },
+  { level: 28, title: 'Kingpin',         desc: 'You own this city. Nobody moves without your permission.' },
+  { level: 35, title: 'Legend',           desc: 'They write books about people like you.' },
+];
+
+// ============================================================
+// RIVAL NAMES — For the rival system
+// ============================================================
+export const RIVAL_NAMES = [
+  'Los Diablos', 'The Black Hand', 'Iron Syndicate', 'Red Serpents',
+  'Ghost Cartel', 'Shadow Union', 'Crimson Wolves', 'Obsidian Ring',
+  'The Collective', 'Viper Network', 'Dead Reckoning', 'Cosa Nova',
+];
+
+// ============================================================
+// MAINTENANCE COSTS (per-tick costs for upkeep)
+// ============================================================
+export const MAINTENANCE = {
+  crewSalaryBase: 8,           // $ per crew member per tick
+  crewSalaryPerLevel: 4,       // $ per crew level per tick
+  territoryUpkeep: {            // $ per tick per territory, by difficulty
+    easy: 15,
+    medium: 40,
+    hard: 100,
+    extreme: 300,
+  },
+  frontOperatingCost: 0.005,   // % of launderCapacity per tick in clean money
+};

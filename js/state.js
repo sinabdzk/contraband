@@ -1,9 +1,9 @@
 // ===== GAME STATE - State management, save/load =====
-import { CONFIG, OPERATIONS, TERRITORIES } from './data.js';
+import { CONFIG, OPERATIONS, TERRITORIES, RIVAL_NAMES } from './data.js';
 
 export function createNewState() {
   return {
-    version: 2,
+    version: 3,
     resources: { ...CONFIG.STARTING_RESOURCES },
     level: 1,
     xp: 0,
@@ -15,11 +15,25 @@ export function createNewState() {
       completions: {},    // opId -> count
     },
     territories: {},      // territoryId -> { control: 0-100, expanding: false }
-    crew: [],             // { id, name, type, level, xp, loyalty, assignment }
+    crew: [],             // { id, name, type, level, xp, loyalty, assignment, traits[] }
     upgrades: {},         // upgradeId -> level
     laundering: {
       rate: 0,            // dirty $ / second to launder
       fronts: [],         // frontId[]
+    },
+    rival: {
+      name: RIVAL_NAMES[Math.floor(Math.random() * RIVAL_NAMES.length)],
+      power: 10,
+      aggression: 0.3,
+      truceTicks: 0,
+      lastAttackTick: 0,
+      defeated: 0,
+    },
+    dilemma: null,          // active dilemma event waiting for choice
+    crewCandidates: [],     // 3 candidates for recruitment choice
+    prestige: {
+      count: 0,
+      totalCleanLifetime: 0,
     },
     marketBoomTicks: 0,
     crewBoostTicks: 0,
@@ -30,6 +44,9 @@ export function createNewState() {
       totalCrewHired: 0,
       totalHeatGained: 0,
       totalEventsTriggered: 0,
+      totalDilemmasFaced: 0,
+      totalRivalsDefeated: 0,
+      totalMaintenancePaid: 0,
       playTimeTicks: 0,
       highestLevel: 1,
     },
@@ -39,7 +56,7 @@ export function createNewState() {
   };
 }
 
-const SAVE_KEY = 'contraband_save_v2';
+const SAVE_KEY = 'contraband_save_v3';
 
 export function saveGame(state) {
   try {
@@ -55,11 +72,12 @@ export function saveGame(state) {
 
 export function loadGame() {
   try {
-    const json = localStorage.getItem(SAVE_KEY);
+    let json = localStorage.getItem(SAVE_KEY);
+    // Also check old save key for migration
+    if (!json) json = localStorage.getItem('contraband_save_v2');
     if (!json) return null;
     const state = JSON.parse(json);
     if (!state || !state.version) return null;
-    // Migrate if needed
     return migrateState(state);
   } catch (e) {
     console.error('Load failed:', e);
@@ -98,6 +116,14 @@ function migrateState(state) {
   if (!state.crewIdCounter) state.crewIdCounter = state.crew.length;
   if (!state.marketBoomTicks) state.marketBoomTicks = 0;
   if (!state.crewBoostTicks) state.crewBoostTicks = 0;
+  // V3 migrations
+  if (!state.rival) state.rival = { ...fresh.rival };
+  if (!state.prestige) state.prestige = { ...fresh.prestige };
+  if (state.dilemma === undefined) state.dilemma = null;
+  if (!state.crewCandidates) state.crewCandidates = [];
+  // Migrate crew traits
+  for (const c of state.crew) { if (!c.traits) c.traits = []; }
+  state.version = 3;
   return state;
 }
 

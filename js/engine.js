@@ -1,5 +1,5 @@
 // ===== GAME ENGINE - Core game loop and all systems =====
-import { CONFIG, OPERATIONS, TERRITORIES, CREW_TYPES, CREW_FIRST_NAMES, CREW_LAST_NAMES, UPGRADES, FRONTS, EVENTS } from './data.js';
+import { CONFIG, OPERATIONS, TERRITORIES, CREW_TYPES, CREW_FIRST_NAMES, CREW_LAST_NAMES, UPGRADES, FRONTS, EVENTS, DILEMMAS, CREW_TRAITS, RANKS, RIVAL_NAMES, MAINTENANCE } from './data.js';
 import { addXP, canAfford, spendResources, saveGame, xpForLevel } from './state.js';
 
 export class GameEngine {
@@ -42,12 +42,19 @@ export class GameEngine {
     // Heat decay
     this.processHeatDecay();
 
+    // Maintenance costs (crew salaries, territory upkeep, front costs)
+    this.processMaintenanceCosts();
+
+    // Rival gang
+    this.processRival();
+
     // Timed buffs
     if (s.marketBoomTicks > 0) s.marketBoomTicks--;
     if (s.crewBoostTicks > 0) s.crewBoostTicks--;
 
-    // Events
+    // Events & Dilemmas
     this.processEvents();
+    this.processDilemmas();
 
     // Auto-save
     this.autoSaveCounter++;
@@ -99,6 +106,14 @@ export class GameEngine {
     return total;
   }
 
+  getTraitBonus(traitId) {
+    let count = 0;
+    for (const c of this.state.crew) {
+      if (c.traits && c.traits.includes(traitId)) count++;
+    }
+    return count;
+  }
+
   getAllBonus(bonusName) {
     return this.getUpgradeEffect(bonusName) + this.getTerritoryBonus(bonusName) + this.getCrewBonus(bonusName);
   }
@@ -114,26 +129,35 @@ export class GameEngine {
   getOpDuration(opData) {
     const speedBonus = this.getAllBonus('opSpeed') + this.getAllBonus('smugglingSpeed') + this.getAllBonus('productionSpeed');
     const boostMultiplier = this.state.crewBoostTicks > 0 ? 0.75 : 1.0;
-    return Math.max(1, Math.floor(opData.duration * (1 - speedBonus) * boostMultiplier));
+    // Trait: Fearless => +12% speed per fearless crew
+    const fearlessBonus = this.getTraitBonus('fearless') * 0.12;
+    return Math.max(1, Math.floor(opData.duration * (1 - speedBonus - fearlessBonus) * boostMultiplier));
   }
 
   getOpReward(opData) {
     const incomeBonus = 1 + this.getAllBonus('incomeMultiplier');
     const boomMultiplier = this.state.marketBoomTicks > 0 ? 2.0 : 1.0;
+    // Prestige bonus: +10% per prestige
+    const prestigeBonus = 1 + (this.state.prestige?.count || 0) * 0.10;
 
     // Category-specific bonuses
     let categoryBonus = 1;
     if (opData.category === 'Drugs') categoryBonus += this.getAllBonus('drugBonus');
     if (opData.category === 'Cyber') categoryBonus += this.getAllBonus('cyberBonus');
 
+    // Trait: Connected => +2 influence per operation (flat)
+    const connectedCount = this.getTraitBonus('connected');
+
     const reward = {};
     for (const [res, amount] of Object.entries(opData.reward)) {
       if (res === 'dirtyMoney' || res === 'cleanMoney') {
-        reward[res] = Math.floor(amount * incomeBonus * boomMultiplier * categoryBonus);
+        reward[res] = Math.floor(amount * incomeBonus * boomMultiplier * categoryBonus * prestigeBonus);
       } else {
         reward[res] = amount;
       }
     }
+    // Add trait influence bonus
+    if (connectedCount > 0) reward.influence = (reward.influence || 0) + connectedCount * 2;
     return reward;
   }
 
@@ -152,12 +176,20 @@ export class GameEngine {
 
   getOpHeat(opData) {
     const heatReduction = 1 - this.getAllBonus('heatReduction') - this.getAllBonus('heatReduce');
-    return Math.max(0, Math.floor(opData.heatGain * Math.max(0.1, heatReduction)));
+    // Traits: Paranoid -10%, Ghost -15%
+    const traitReduce = this.getTraitBonus('paranoid') * 0.10 + this.getTraitBonus('ghost') * 0.15;
+    // Trait: Violent +5%
+    const traitIncrease = this.getTraitBonus('violent') * 0.05;
+    return Math.max(0, Math.floor(opData.heatGain * Math.max(0.1, heatReduction - traitReduce + traitIncrease)));
   }
 
   getOpXP(opData) {
     const xpBonus = 1 + this.getAllBonus('xpGain') + this.getAllBonus('crewXPBonus');
-    return Math.floor(opData.xp * xpBonus);
+    // Trait: Genius +20%
+    const geniusBonus = this.getTraitBonus('genius') * 0.20;
+    // Prestige bonus: +10% per prestige
+    const prestigeBonus = (this.state.prestige?.count || 0) * 0.10;
+    return Math.floor(opData.xp * (xpBonus + geniusBonus + prestigeBonus));
   }
 
   getLaunderMaxRate() {
@@ -188,7 +220,9 @@ export class GameEngine {
     const base = CONFIG.RECRUIT_BASE_COST;
     const count = this.state.stats.totalCrewHired;
     const discount = 1 - this.getAllBonus('recruitCostReduction');
-    return Math.floor(base * Math.pow(CONFIG.RECRUIT_COST_GROWTH, count) * Math.max(0.3, discount));
+    // Trait: Negotiator -15% per negotiator crew member
+    const negotiatorDiscount = 1 - this.getTraitBonus('negotiator') * 0.15;
+    return Math.floor(base * Math.pow(CONFIG.RECRUIT_COST_GROWTH, count) * Math.max(0.3, discount) * Math.max(0.3, negotiatorDiscount));
   }
 
   // ===== ACTIONS =====
@@ -376,7 +410,8 @@ export class GameEngine {
 
   processTerritory() {
     const s = this.state;
-    const speedBonus = 1 + this.getAllBonus('territorySpeed') + this.getAllBonus('territoryControl');
+    const violentBonus = this.getTraitBonus('violent') * 0.15;
+    const speedBonus = 1 + this.getAllBonus('territorySpeed') + this.getAllBonus('territoryControl') + violentBonus;
 
     for (const [id, tData] of Object.entries(s.territories)) {
       if (tData.expanding && tData.control < 100) {
@@ -396,7 +431,84 @@ export class GameEngine {
 
   // ===== CREW =====
 
+  generateCrewCandidates() {
+    const s = this.state;
+    if (s.crew.length >= this.getMaxCrew()) {
+      this.ui.notify('Crew is full! Upgrade capacity.', 'warning');
+      return [];
+    }
+    const cost = this.getRecruitCost();
+    if (s.resources.dirtyMoney < cost) {
+      this.ui.notify(`Need $${this.formatNum(cost)} to recruit!`, 'danger');
+      return [];
+    }
+
+    const qualityBonus = this.getUpgradeEffect('recruitQuality');
+    const candidates = [];
+    for (let i = 0; i < 3; i++) {
+      const type = CREW_TYPES[Math.floor(Math.random() * CREW_TYPES.length)];
+      const firstName = CREW_FIRST_NAMES[Math.floor(Math.random() * CREW_FIRST_NAMES.length)];
+      const lastName = CREW_LAST_NAMES[Math.floor(Math.random() * CREW_LAST_NAMES.length)];
+      const baseLoyalty = 40 + Math.floor(Math.random() * 35) + Math.floor(qualityBonus * 20);
+      const baseLevel = 1 + Math.floor(Math.random() * Math.min(3, Math.floor(s.level / 5)));
+
+      // Random traits (0-2)
+      const numTraits = Math.random() < 0.3 ? 0 : Math.random() < 0.6 ? 1 : 2;
+      const traitPool = [...CREW_TRAITS];
+      const traits = [];
+      for (let t = 0; t < numTraits; t++) {
+        if (traitPool.length === 0) break;
+        const idx = Math.floor(Math.random() * traitPool.length);
+        traits.push(traitPool[idx].id);
+        traitPool.splice(idx, 1);
+      }
+
+      candidates.push({
+        name: `${firstName} ${lastName}`,
+        type: type.id,
+        level: baseLevel,
+        loyalty: Math.min(100, baseLoyalty),
+        traits: traits,
+      });
+    }
+    s.crewCandidates = candidates;
+    return candidates;
+  }
+
+  hireCandidate(index) {
+    const s = this.state;
+    if (index < 0 || index >= s.crewCandidates.length) return false;
+    if (s.crew.length >= this.getMaxCrew()) return false;
+
+    const cost = this.getRecruitCost();
+    if (s.resources.dirtyMoney < cost) return false;
+    s.resources.dirtyMoney -= cost;
+
+    const candidate = s.crewCandidates[index];
+    const member = {
+      id: ++s.crewIdCounter,
+      name: candidate.name,
+      type: candidate.type,
+      level: candidate.level,
+      xp: 0,
+      xpToNext: Math.floor(50 * Math.pow(1.3, candidate.level - 1)),
+      loyalty: candidate.loyalty,
+      assignment: null,
+      traits: candidate.traits,
+    };
+
+    s.crew.push(member);
+    s.stats.totalCrewHired++;
+    s.crewCandidates = [];
+
+    const type = CREW_TYPES.find(t => t.id === member.type);
+    this.ui.notify(`Recruited ${member.name} (${type?.name})!`, 'success');
+    this.ui.addEvent(`Hired ${member.name} — ${type?.name}`, 'info');
+    return true;
+  }
+
   recruitCrew() {
+    // Legacy: still works as direct random hire (used by auto etc.)
     const s = this.state;
     if (s.crew.length >= this.getMaxCrew()) {
       this.ui.notify('Crew is full! Upgrade capacity.', 'warning');
@@ -429,6 +541,7 @@ export class GameEngine {
       xpToNext: 50,
       loyalty: Math.min(100, baseLoyalty),
       assignment: null,
+      traits: [],
     };
 
     s.crew.push(member);
@@ -460,9 +573,22 @@ export class GameEngine {
         member.xpToNext = Math.floor(50 * Math.pow(1.3, member.level - 1));
         this.ui.addEvent(`${member.name} reached level ${member.level}!`, 'info');
       }
-      // Loyalty decay
+      // Loyalty decay per crew member
       const loyaltyDecayReduction = 1 - this.getUpgradeEffect('loyaltyDecay');
-      member.loyalty = Math.max(10, member.loyalty - 0.02 * loyaltyDecayReduction);
+      let decayRate = 0.02 * loyaltyDecayReduction;
+      // Trait: Loyal => 50% slower decay
+      if (member.traits && member.traits.includes('loyal')) decayRate *= 0.5;
+      // Trait: Addict => 2x faster decay
+      if (member.traits && member.traits.includes('addict')) decayRate *= 2.0;
+      member.loyalty = Math.max(10, member.loyalty - decayRate);
+    }
+
+    // Trait: Natural Leader => all crew +0.01 loyalty per tick per leader
+    const leaderCount = this.getTraitBonus('leader');
+    if (leaderCount > 0) {
+      for (const member of s.crew) {
+        member.loyalty = Math.min(100, member.loyalty + 0.01 * leaderCount);
+      }
     }
   }
 
@@ -628,7 +754,6 @@ export class GameEngine {
 
   getDirtyIncomeRate() {
     let rate = 0;
-    // From running operations (estimate)
     for (const run of this.state.operations.running) {
       const opData = OPERATIONS.find(o => o.id === run.id);
       if (opData) {
@@ -637,10 +762,10 @@ export class GameEngine {
         rate += (reward.dirtyMoney || 0) / duration;
       }
     }
-    // Passive income
     rate += this.getUpgradeEffect('passiveIncome') * (1 + this.getAllBonus('incomeMultiplier'));
-    // Subtract laundering
     rate -= this.state.laundering.rate;
+    // Subtract maintenance
+    rate -= this.getMaintenanceCost();
     return rate;
   }
 
@@ -648,6 +773,285 @@ export class GameEngine {
     let rate = 0;
     rate += this.state.laundering.rate * this.getLaunderEfficiency();
     return rate;
+  }
+
+  getMaintenanceCost() {
+    const s = this.state;
+    let cost = 0;
+    // Crew salaries
+    for (const c of s.crew) {
+      let salary = MAINTENANCE.crewSalaryBase + MAINTENANCE.crewSalaryPerLevel * c.level;
+      if (c.traits && c.traits.includes('greedy')) salary += 50;
+      cost += salary;
+    }
+    // Territory upkeep
+    for (const [id, tData] of Object.entries(s.territories)) {
+      if (tData.control > 0) {
+        const terr = TERRITORIES.find(t => t.id === id);
+        if (terr) cost += (MAINTENANCE.territoryUpkeep[terr.difficulty] || 0) * (tData.control / 100);
+      }
+    }
+    return cost;
+  }
+
+  getCleanMaintenanceCost() {
+    const s = this.state;
+    let cost = 0;
+    for (const frontId of s.laundering.fronts) {
+      const front = FRONTS.find(f => f.id === frontId);
+      if (front) cost += front.launderCapacity * MAINTENANCE.frontOperatingCost;
+    }
+    return cost;
+  }
+
+  // ===== MAINTENANCE =====
+
+  processMaintenanceCosts() {
+    const s = this.state;
+    const dirtyCost = this.getMaintenanceCost();
+    const cleanCost = this.getCleanMaintenanceCost();
+
+    if (dirtyCost > 0) {
+      if (s.resources.dirtyMoney >= dirtyCost) {
+        s.resources.dirtyMoney -= dirtyCost;
+        s.stats.totalMaintenancePaid = (s.stats.totalMaintenancePaid || 0) + dirtyCost;
+      } else {
+        // Can't pay! Crew loyalty drops, territory decays
+        s.resources.dirtyMoney = 0;
+        s.crew.forEach(c => { c.loyalty = Math.max(10, c.loyalty - 0.5); });
+        // Lose territory slowly
+        for (const t of Object.values(s.territories)) {
+          if (t.control > 0) t.control = Math.max(0, t.control - 0.2);
+        }
+      }
+    }
+
+    if (cleanCost > 0) {
+      if (s.resources.cleanMoney >= cleanCost) {
+        s.resources.cleanMoney -= cleanCost;
+      }
+      // If can't afford, fronts still work but at reduced capacity (handled via UI)
+    }
+  }
+
+  // ===== RIVAL SYSTEM =====
+
+  processRival() {
+    const s = this.state;
+    if (!s.rival) return;
+
+    // Truce countdown
+    if (s.rival.truceTicks > 0) {
+      s.rival.truceTicks--;
+      return;
+    }
+
+    // Rival grows in power over time
+    s.rival.power += 0.03 + (s.level * 0.005);
+
+    // Rival aggression slowly increases
+    s.rival.aggression = Math.min(1.0, s.rival.aggression + 0.001);
+
+    // Rival attack check
+    if (s.rival.power >= 30 && s.rival.aggression >= 0.4) {
+      const attackChance = 0.003 * s.rival.aggression;
+      if (Math.random() < attackChance && (s.tickCount - s.rival.lastAttackTick) > 60) {
+        this.rivalAttack();
+      }
+    }
+  }
+
+  rivalAttack() {
+    const s = this.state;
+    s.rival.lastAttackTick = s.tickCount;
+    const power = s.rival.power;
+
+    const attackTypes = [];
+    if (s.resources.dirtyMoney > 1000) attackTypes.push('money');
+    if (Object.values(s.territories).some(t => t.control > 20)) attackTypes.push('territory');
+    if (s.resources.supplies > 5) attackTypes.push('supplies');
+
+    if (attackTypes.length === 0) return;
+    const attack = attackTypes[Math.floor(Math.random() * attackTypes.length)];
+
+    switch (attack) {
+      case 'money': {
+        const stolen = Math.floor(s.resources.dirtyMoney * Math.min(0.15, power * 0.002));
+        s.resources.dirtyMoney = Math.max(0, s.resources.dirtyMoney - stolen);
+        this.ui.notify(`${s.rival.name} raided your stash! Lost $${this.formatNum(stolen)}`, 'danger');
+        this.ui.addEvent(`${s.rival.name} stole $${this.formatNum(stolen)}!`, 'danger');
+        break;
+      }
+      case 'territory': {
+        const controlled = Object.entries(s.territories).filter(([, t]) => t.control > 20);
+        if (controlled.length > 0) {
+          const [key, terr] = controlled[Math.floor(Math.random() * controlled.length)];
+          const loss = 5 + Math.floor(power * 0.2);
+          s.territories[key].control = Math.max(0, terr.control - loss);
+          const name = TERRITORIES.find(t => t.id === key)?.name || key;
+          this.ui.notify(`${s.rival.name} attacked ${name}! Lost ${loss}% control`, 'danger');
+          this.ui.addEvent(`${s.rival.name} seized territory in ${name} (-${loss}%)`, 'danger');
+        }
+        break;
+      }
+      case 'supplies': {
+        const stolen = Math.floor(s.resources.supplies * 0.2);
+        s.resources.supplies = Math.max(0, s.resources.supplies - stolen);
+        this.ui.notify(`${s.rival.name} hijacked a supply run! Lost ${stolen} supplies`, 'danger');
+        this.ui.addEvent(`${s.rival.name} stole ${stolen} supplies`, 'danger');
+        break;
+      }
+    }
+  }
+
+  attackRival() {
+    const s = this.state;
+    if (!s.rival) return false;
+
+    // Cost to strike: scales with rival power
+    const cost = Math.floor(1000 + s.rival.power * 200);
+    const influenceCost = Math.floor(2 + s.rival.power * 0.1);
+
+    if (s.resources.dirtyMoney < cost || s.resources.influence < influenceCost) {
+      this.ui.notify(`Need $${this.formatNum(cost)} and ${influenceCost} influence to attack!`, 'danger');
+      return false;
+    }
+
+    s.resources.dirtyMoney -= cost;
+    s.resources.influence -= influenceCost;
+    s.resources.heat += 5;
+
+    // Crew power affects success
+    const crewPower = s.crew.reduce((sum, c) => sum + c.level * (c.loyalty / 100), 0);
+    const bruiserBonus = this.getTraitBonus('bruiser') * 3;
+    const damage = 10 + Math.floor((crewPower + bruiserBonus) * 0.5) + Math.floor(Math.random() * 10);
+
+    s.rival.power = Math.max(0, s.rival.power - damage);
+
+    if (s.rival.power <= 0) {
+      // Rival defeated!
+      s.rival.defeated++;
+      s.stats.totalRivalsDefeated = (s.stats.totalRivalsDefeated || 0) + 1;
+      const oldName = s.rival.name;
+      const bonus = 5000 * (1 + s.rival.defeated);
+      s.resources.dirtyMoney += bonus;
+      s.resources.influence += 10;
+
+      this.ui.notify(`${oldName} DESTROYED! +$${this.formatNum(bonus)} +10 influence!`, 'unlock');
+      this.ui.addEvent(`Defeated ${oldName}! Spoils collected.`, 'unlock');
+
+      // Spawn new rival with higher base power
+      const availableNames = RIVAL_NAMES.filter(n => n !== oldName);
+      s.rival.name = availableNames[Math.floor(Math.random() * availableNames.length)];
+      s.rival.power = 10 + s.rival.defeated * 15;
+      s.rival.aggression = 0.2 + s.rival.defeated * 0.1;
+      s.rival.truceTicks = 30;
+    } else {
+      this.ui.notify(`Strike against ${s.rival.name}! Dealt ${damage} damage. Power: ${Math.floor(s.rival.power)}`, 'success');
+      this.ui.addEvent(`Attacked ${s.rival.name}: -${damage} power`, 'info');
+    }
+
+    return true;
+  }
+
+  // ===== DILEMMA SYSTEM =====
+
+  processDilemmas() {
+    const s = this.state;
+    // Don't trigger if one is already active
+    if (s.dilemma) return;
+    // Cooldown: only check once per 60 ticks
+    if (s.tickCount % 60 !== 0) return;
+
+    for (const dilemma of DILEMMAS) {
+      if (!dilemma.condition(s)) continue;
+      if (Math.random() > dilemma.chance * 3) continue; // Boosted since we check less often
+
+      // Trigger dilemma
+      s.dilemma = { id: dilemma.id };
+      s.stats.totalDilemmasFaced = (s.stats.totalDilemmasFaced || 0) + 1;
+      this.ui.showDilemma(dilemma);
+      break;
+    }
+  }
+
+  resolveDilemma(choiceIndex) {
+    const s = this.state;
+    if (!s.dilemma) return;
+
+    const dilemma = DILEMMAS.find(d => d.id === s.dilemma.id);
+    if (!dilemma || choiceIndex < 0 || choiceIndex >= dilemma.choices.length) return;
+
+    const choice = dilemma.choices[choiceIndex];
+    const result = choice.effect(s);
+
+    this.ui.notify(result.msg, result.type === 'success' ? 'success' : result.type === 'danger' ? 'danger' : 'info');
+    this.ui.addEvent(`${dilemma.name}: ${result.msg}`, result.type);
+
+    s.dilemma = null;
+    this.ui.hideDilemma();
+  }
+
+  // ===== RANK =====
+
+  getCurrentRank() {
+    const level = this.state.level;
+    let current = RANKS[0];
+    for (const rank of RANKS) {
+      if (level >= rank.level) current = rank;
+    }
+    return current;
+  }
+
+  // ===== PRESTIGE =====
+
+  canPrestige() {
+    return this.state.level >= 25 && this.state.resources.cleanMoney >= 1000000;
+  }
+
+  performPrestige() {
+    const s = this.state;
+    if (!this.canPrestige()) return false;
+
+    const newPrestigeCount = s.prestige.count + 1;
+    const totalClean = (s.prestige.totalCleanLifetime || 0) + s.stats.totalCleanEarned;
+
+    // Reset state but keep prestige data
+    const rivalDefeated = s.rival?.defeated || 0;
+    const fresh = {};
+    Object.assign(fresh, JSON.parse(JSON.stringify(s)));
+
+    // Reset resources
+    s.resources = { ...CONFIG.STARTING_RESOURCES };
+    s.level = 1;
+    s.xp = 0;
+    s.xpToNext = CONFIG.BASE_XP_PER_LEVEL;
+    s.operations = { unlocked: ['street_dealing'], running: [], autoEnabled: {}, completions: {} };
+    s.territories = {};
+    s.crew = [];
+    s.upgrades = {};
+    s.laundering = { rate: 0, fronts: [] };
+    s.marketBoomTicks = 0;
+    s.crewBoostTicks = 0;
+    s.crewIdCounter = 0;
+    s.crewCandidates = [];
+    s.dilemma = null;
+
+    // Keep prestige + rival (rival power carries)
+    s.prestige = { count: newPrestigeCount, totalCleanLifetime: totalClean };
+    s.rival = { ...fresh.rival, defeated: rivalDefeated };
+
+    // Reset stats (but keep lifetime ones)
+    s.stats = {
+      totalDirtyEarned: 0, totalCleanEarned: 0, totalOperations: 0,
+      totalCrewHired: 0, totalHeatGained: 0, totalEventsTriggered: 0,
+      totalDilemmasFaced: 0, totalRivalsDefeated: rivalDefeated,
+      totalMaintenancePaid: 0, playTimeTicks: 0, highestLevel: 1,
+    };
+
+    this.ui.notify(`PRESTIGE ${newPrestigeCount}! +${newPrestigeCount * 10}% all income & XP permanently!`, 'unlock');
+    this.ui.addEvent(`Went legitimate! Prestige Level ${newPrestigeCount}`, 'unlock');
+    return true;
   }
 
   // ===== UTILITIES =====
