@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CONTRABAND — Empire of Crime</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Share+Tech+Mono&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- LOADING SCREEN -->
+  <div id="loading-screen">
+    <div class="loading-content">
+      <h1 class="game-logo">CONTRABAND</h1>
+      <p class="loading-tagline">Build Your Empire. Own The City.</p>
+      <div class="loading-bar"><div class="loading-fill"></div></div>
+    </div>
+  </div>
+
+  <!-- MAIN GAME UI -->
+  <div id="game-container" class="hidden">
+    <!-- TOP RESOURCE BAR -->
+    <header id="top-bar">
+      <div class="logo-section">
+        <h1 class="game-title">CONTRABAND</h1>
+        <span id="player-level" class="level-badge">Lv 1</span>
+      </div>
+      <div class="resources-section">
+        <div class="resource" data-resource="dirtyMoney">
+          <span class="resource-icon">💰</span>
+          <div class="resource-info">
+            <span class="resource-label">Dirty Cash</span>
+            <span class="resource-value" id="res-dirty">$500</span>
+            <span class="resource-rate" id="rate-dirty">+$0/s</span>
+          </div>
+        </div>
+        <div class="resource" data-resource="cleanMoney">
+          <span class="resource-icon">💵</span>
+          <div class="resource-info">
+            <span class="resource-label">Clean Money</span>
+            <span class="resource-value" id="res-clean">$0</span>
+            <span class="resource-rate" id="rate-clean">+$0/s</span>
+          </div>
+        </div>
+        <div class="resource" data-resource="influence">
+          <span class="resource-icon">⭐</span>
+          <div class="resource-info">
+            <span class="resource-label">Influence</span>
+            <span class="resource-value" id="res-influence">0</span>
+          </div>
+        </div>
+        <div class="resource heat-resource" data-resource="heat">
+          <span class="resource-icon">🔥</span>
+          <div class="resource-info">
+            <span class="resource-label">Heat</span>
+            <div class="heat-bar-container">
+              <div class="heat-bar" id="heat-bar" style="width:0%"></div>
+              <span class="heat-value" id="res-heat">0%</span>
+            </div>
+          </div>
+        </div>
+        <div class="resource" data-resource="supplies">
+          <span class="resource-icon">📦</span>
+          <div class="resource-info">
+            <span class="resource-label">Supplies</span>
+            <span class="resource-value" id="res-supplies">10</span>
+          </div>
+        </div>
+      </div>
+      <div class="xp-bar-section">
+        <div class="xp-bar-container">
+          <div class="xp-bar" id="xp-bar" style="width:0%"></div>
+          <span class="xp-text" id="xp-text">0 / 100 XP</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN LAYOUT -->
+    <div id="main-layout">
+      <!-- SIDEBAR NAV -->
+      <nav id="sidebar">
+        <button class="nav-btn active" data-tab="operations">
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-label">Operations</span>
+        </button>
+        <button class="nav-btn" data-tab="territory">
+          <span class="nav-icon">🗺️</span>
+          <span class="nav-label">Territory</span>
+        </button>
+        <button class="nav-btn" data-tab="crew">
+          <span class="nav-icon">👥</span>
+          <span class="nav-label">Crew</span>
+        </button>
+        <button class="nav-btn" data-tab="upgrades">
+          <span class="nav-icon">🔧</span>
+          <span class="nav-label">Upgrades</span>
+        </button>
+        <button class="nav-btn" data-tab="laundering">
+          <span class="nav-icon">🏦</span>
+          <span class="nav-label">Laundering</span>
+        </button>
+        <button class="nav-btn" data-tab="stats">
+          <span class="nav-icon">📊</span>
+          <span class="nav-label">Stats</span>
+        </button>
+        <div class="sidebar-spacer"></div>
+        <button class="nav-btn nav-btn-save" id="btn-save">
+          <span class="nav-icon">💾</span>
+          <span class="nav-label">Save</span>
+        </button>
+        <button class="nav-btn nav-btn-settings" id="btn-settings">
+          <span class="nav-icon">⚙</span>
+          <span class="nav-label">Settings</span>
+        </button>
+      </nav>
+
+      <!-- CONTENT AREA -->
+      <main id="content-area">
+        <!-- OPERATIONS TAB -->
+        <section class="tab-panel active" id="tab-operations">
+          <div class="panel-header">
+            <h2>Operations</h2>
+            <p class="panel-subtitle">Run criminal operations to earn dirty money and XP.</p>
+          </div>
+          <div class="operations-grid" id="operations-list"></div>
+        </section>
+
+        <!-- TERRITORY TAB -->
+        <section class="tab-panel" id="tab-territory">
+          <div class="panel-header">
+            <h2>Territory</h2>
+            <p class="panel-subtitle">Expand your empire across the city districts.</p>
+          </div>
+          <div class="territory-grid" id="territory-map"></div>
+        </section>
+
+        <!-- CREW TAB -->
+        <section class="tab-panel" id="tab-crew">
+          <div class="panel-header">
+            <h2>Crew</h2>
+            <p class="panel-subtitle">Recruit and manage your criminal organization.</p>
+          </div>
+          <div class="crew-controls">
+            <button class="btn btn-primary" id="btn-recruit">👤 Recruit New Member</button>
+            <span class="crew-count" id="crew-count">Crew: 0 / 5</span>
+          </div>
+          <div class="crew-grid" id="crew-list"></div>
+        </section>
+
+        <!-- UPGRADES TAB -->
+        <section class="tab-panel" id="tab-upgrades">
+          <div class="panel-header">
+            <h2>Upgrades</h2>
+            <p class="panel-subtitle">Invest in permanent improvements for your empire.</p>
+          </div>
+          <div class="upgrades-categories" id="upgrades-list"></div>
+        </section>
+
+        <!-- LAUNDERING TAB -->
+        <section class="tab-panel" id="tab-laundering">
+          <div class="panel-header">
+            <h2>Money Laundering</h2>
+            <p class="panel-subtitle">Convert dirty money into clean, usable funds.</p>
+          </div>
+          <div class="laundering-overview" id="laundering-panel">
+            <div class="laundering-stats">
+              <div class="launder-stat">
+                <span class="launder-label">Laundering Rate</span>
+                <span class="launder-value" id="launder-rate">$0/s</span>
+              </div>
+              <div class="launder-stat">
+                <span class="launder-label">Efficiency</span>
+                <span class="launder-value" id="launder-efficiency">70%</span>
+              </div>
+              <div class="launder-stat">
+                <span class="launder-label">Processing</span>
+                <span class="launder-value" id="launder-processing">$0</span>
+              </div>
+            </div>
+            <div class="laundering-controls">
+              <div class="launder-slider-group">
+                <label>Amount to Launder (per second)</label>
+                <input type="range" id="launder-slider" min="0" max="1000" value="0" step="10">
+                <span id="launder-slider-value">$0/s</span>
+              </div>
+            </div>
+            <h3>Business Fronts</h3>
+            <div class="fronts-grid" id="fronts-list"></div>
+          </div>
+        </section>
+
+        <!-- STATS TAB -->
+        <section class="tab-panel" id="tab-stats">
+          <div class="panel-header">
+            <h2>Statistics</h2>
+            <p class="panel-subtitle">Your criminal record.</p>
+          </div>
+          <div class="stats-grid" id="stats-panel"></div>
+        </section>
+      </main>
+
+      <!-- EVENT LOG -->
+      <aside id="event-log">
+        <h3>Activity Feed</h3>
+        <div id="event-list"></div>
+      </aside>
+    </div>
+
+    <!-- NOTIFICATION AREA -->
+    <div id="notifications"></div>
+
+    <!-- MODAL OVERLAY -->
+    <div id="modal-overlay" class="hidden">
+      <div id="modal-content">
+        <h3 id="modal-title"></h3>
+        <p id="modal-body"></p>
+        <div id="modal-actions"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

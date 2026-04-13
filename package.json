@@ -1,0 +1,12 @@
+{
+  "name": "contraband",
+  "version": "0.1.0",
+  "description": "Criminal empire building strategy game",
+  "scripts": {
+    "start": "npx serve . -p 3000 -s",
+    "dev": "npx serve . -p 3000 -s --cors"
+  },
+  "keywords": ["game", "strategy", "incremental", "criminal-empire"],
+  "license": "UNLICENSED",
+  "private": true
+}
