@@ -336,7 +336,7 @@ export const CREW_LAST_NAMES = [
 export const UPGRADES = {
   operations: {
     title: 'Operations',
-    icon: '⚙️',
+    icon: 'ops',
     items: [
       { id: 'faster_ops', name: 'Efficient Planning', desc: 'Operations complete faster.', effect: 'opSpeed', valuePerLevel: 0.08, maxLevel: 10, baseCost: 1000, costGrowth: 1.8, currency: 'dirtyMoney', levelReq: 1 },
       { id: 'bigger_payouts', name: 'Better Connections', desc: 'Increase operation payouts.', effect: 'incomeMultiplier', valuePerLevel: 0.06, maxLevel: 15, baseCost: 2500, costGrowth: 1.9, currency: 'dirtyMoney', levelReq: 3 },
@@ -346,7 +346,7 @@ export const UPGRADES = {
   },
   crew: {
     title: 'Crew',
-    icon: '👥',
+    icon: 'crew',
     items: [
       { id: 'crew_capacity', name: 'Extended Network', desc: 'Increase max crew size.', effect: 'maxCrew', valuePerLevel: 2, maxLevel: 10, baseCost: 3000, costGrowth: 2.0, currency: 'dirtyMoney', levelReq: 3 },
       { id: 'crew_training', name: 'Training Program', desc: 'Crew members gain XP faster.', effect: 'crewXP', valuePerLevel: 0.10, maxLevel: 8, baseCost: 5000, costGrowth: 1.8, currency: 'dirtyMoney', levelReq: 5 },
@@ -356,7 +356,7 @@ export const UPGRADES = {
   },
   heat: {
     title: 'Heat Management',
-    icon: '🔥',
+    icon: 'heat',
     items: [
       { id: 'bribe_cops', name: 'Corrupt Officers', desc: 'Reduce heat gain from operations.', effect: 'heatReduction', valuePerLevel: 0.06, maxLevel: 10, baseCost: 4000, costGrowth: 2.0, currency: 'dirtyMoney', levelReq: 3 },
       { id: 'safe_houses', name: 'Safe Houses', desc: 'Heat decays faster over time.', effect: 'heatDecay', valuePerLevel: 0.15, maxLevel: 8, baseCost: 8000, costGrowth: 2.2, currency: 'dirtyMoney', levelReq: 6 },
@@ -366,7 +366,7 @@ export const UPGRADES = {
   },
   laundering: {
     title: 'Laundering',
-    icon: '🏦',
+    icon: 'launder',
     items: [
       { id: 'launder_rate', name: 'Faster Processing', desc: 'Increase laundering throughput.', effect: 'launderRate', valuePerLevel: 100, maxLevel: 20, baseCost: 5000, costGrowth: 1.6, currency: 'dirtyMoney', levelReq: 4 },
       { id: 'launder_eff', name: 'Better Conversion', desc: 'Less money lost during laundering.', effect: 'launderEfficiency', valuePerLevel: 0.02, maxLevel: 12, baseCost: 10000, costGrowth: 2.0, currency: 'dirtyMoney', levelReq: 6 },
@@ -375,7 +375,7 @@ export const UPGRADES = {
   },
   empire: {
     title: 'Empire',
-    icon: '👑',
+    icon: 'crown',
     items: [
       { id: 'passive_income', name: 'Passive Revenue', desc: 'Earn dirty money passively each second.', effect: 'passiveIncome', valuePerLevel: 50, maxLevel: 20, baseCost: 15000, costGrowth: 1.8, currency: 'dirtyMoney', levelReq: 8 },
       { id: 'influence_gen', name: 'Political Reach', desc: 'Generate influence passively.', effect: 'passiveInfluence', valuePerLevel: 0.2, maxLevel: 15, baseCost: 25000, costGrowth: 2.0, currency: 'cleanMoney', levelReq: 10 },
@@ -398,7 +398,7 @@ export const FRONTS = [
 export const EVENTS = [
   {
     id: 'police_raid',
-    name: '🚨 Police Raid!',
+    name: 'POLICE RAID',
     desc: 'The cops are kicking down doors! You lose some cash and supplies.',
     type: 'danger',
     condition: (state) => state.resources.heat >= 60,
@@ -415,7 +415,7 @@ export const EVENTS = [
   },
   {
     id: 'informant',
-    name: '🐀 Informant Discovered!',
+    name: 'INFORMANT DISCOVERED',
     desc: 'One of your crew is talking to the feds. Heat spikes!',
     type: 'danger',
     condition: (state) => state.crew.length >= 2,
@@ -427,7 +427,7 @@ export const EVENTS = [
   },
   {
     id: 'turf_war',
-    name: '⚔️ Turf War!',
+    name: 'TURF WAR',
     desc: 'A rival gang is contesting your territory!',
     type: 'warning',
     condition: (state) => Object.values(state.territories).some(t => t.control > 30),
@@ -446,7 +446,7 @@ export const EVENTS = [
   },
   {
     id: 'supply_shipment',
-    name: '📦 Supply Windfall!',
+    name: 'SUPPLY WINDFALL',
     desc: 'A shipment fell off a truck. Free supplies!',
     type: 'money',
     condition: () => true,
@@ -459,7 +459,7 @@ export const EVENTS = [
   },
   {
     id: 'market_boom',
-    name: '📈 Market Boom!',
+    name: 'MARKET BOOM',
     desc: 'Demand is up! Next few operations pay double.',
     type: 'money',
     condition: (state) => state.level >= 3,
@@ -471,7 +471,7 @@ export const EVENTS = [
   },
   {
     id: 'celebrity_client',
-    name: '🌟 Celebrity Client!',
+    name: 'CELEBRITY CLIENT',
     desc: 'A famous client wants a special delivery. Big payout!',
     type: 'money',
     condition: (state) => state.level >= 5,
@@ -485,7 +485,7 @@ export const EVENTS = [
   },
   {
     id: 'equipment_bust',
-    name: '🔨 Equipment Seized!',
+    name: 'EQUIPMENT SEIZED',
     desc: 'Authorities found one of your stashes.',
     type: 'danger',
     condition: (state) => state.resources.heat >= 40,
@@ -498,7 +498,7 @@ export const EVENTS = [
   },
   {
     id: 'political_favor',
-    name: '🏛️ Political Favor',
+    name: 'POLITICAL FAVOR',
     desc: 'A corrupt politician owes you one. Heat drops significantly.',
     type: 'info',
     condition: (state) => state.resources.influence >= 10,
@@ -510,7 +510,7 @@ export const EVENTS = [
   },
   {
     id: 'rival_offer',
-    name: '🤝 Rival Proposition',
+    name: 'RIVAL PROPOSITION',
     desc: 'A rival boss offers a one-time trade deal.',
     type: 'info',
     condition: (state) => state.level >= 8,
@@ -524,7 +524,7 @@ export const EVENTS = [
   },
   {
     id: 'crew_bonus',
-    name: '💪 Crew Morale Boost!',
+    name: 'CREW MORALE BOOST',
     desc: 'Your crew is inspired. Everyone works harder!',
     type: 'info',
     condition: (state) => state.crew.length >= 1,
@@ -537,7 +537,7 @@ export const EVENTS = [
   },
   {
     id: 'tax_investigation',
-    name: '🔍 Tax Investigation!',
+    name: 'TAX INVESTIGATION',
     desc: 'The IRS is sniffing around your finances.',
     type: 'warning',
     condition: (state) => state.resources.cleanMoney >= 10000,
@@ -551,7 +551,7 @@ export const EVENTS = [
   },
   {
     id: 'black_market',
-    name: '🛒 Black Market Access!',
+    name: 'BLACK MARKET ACCESS',
     desc: 'Special bulk deals on supplies!',
     type: 'money',
     condition: (state) => state.level >= 4,

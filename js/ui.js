@@ -1,6 +1,11 @@
 // ===== UI MANAGER - All rendering and DOM interaction =====
 import { OPERATIONS, TERRITORIES, CREW_TYPES, UPGRADES, FRONTS, CONFIG } from './data.js';
 
+// SVG icon helper - returns inline <svg> using the sprite
+function ico(name, cls = '') {
+  return `<svg class="ico ${cls}"><use href="#ico-${name}"/></svg>`;
+}
+
 export class UI {
   constructor() {
     this.currentTab = 'operations';
@@ -9,6 +14,8 @@ export class UI {
     this.notifQueue = [];
     this.eventLog = [];
     this.lastResourceValues = {};
+    this.ambientCtx = null;
+    this.particles = [];
   }
 
   init(engine, state) {
@@ -16,6 +23,7 @@ export class UI {
     this.state = state;
     this.bindNavigation();
     this.bindButtons();
+    this.initAmbientParticles();
     this.renderAll();
   }
 
@@ -46,15 +54,15 @@ export class UI {
     document.getElementById('btn-save').addEventListener('click', () => {
       const { saveGame } = window._saveGame;
       saveGame(this.state);
-      this.notify('💾 Game saved!', 'success');
+      this.notify('Game saved!', 'success');
     });
 
     document.getElementById('btn-settings').addEventListener('click', () => {
       this.showModal('Settings', `
         <div style="display:flex;flex-direction:column;gap:10px;">
           <p>Version: 0.1.0 | Ticks: ${this.state.tickCount}</p>
-          <button class="btn btn-danger" id="modal-reset">🗑️ Reset Save</button>
-          <button class="btn" id="modal-export">📤 Export Save</button>
+          <button class="btn btn-danger" id="modal-reset">${ico('trash')} Reset Save</button>
+          <button class="btn" id="modal-export">${ico('export')} Export Save</button>
           <button class="btn" id="modal-close">Close</button>
         </div>
       `, () => {
@@ -134,6 +142,9 @@ export class UI {
     const xpPercent = Math.floor((s.xp / s.xpToNext) * 100);
     document.getElementById('xp-bar').style.width = xpPercent + '%';
     document.getElementById('xp-text').textContent = `${Math.floor(s.xp)} / ${s.xpToNext} XP`;
+
+    // Heat warning pulse
+    this.updateHeatWarning();
   }
 
   flashIfChanged(key, value, el) {
@@ -198,7 +209,7 @@ export class UI {
 
       const cardClass = unlocked ? (isRunning ? 'op-card running' : 'op-card') : 'op-card locked';
 
-      html += `<div class="${cardClass}" data-op="${op.id}">`;
+      html += `<div class="${cardClass}" data-op="${op.id}" data-cat="${op.category}">`;
       html += `<div class="op-header">`;
       html += `<span class="op-name">${op.name}</span>`;
       html += `<span class="op-category">${op.category}</span>`;
@@ -210,29 +221,29 @@ export class UI {
         html += `<div class="op-progress-bar" id="op-progress-${op.id}"></div>`;
         html += `</div>`;
         html += `<div class="op-stats">`;
-        if (reward.dirtyMoney) html += `<div class="op-stat"><span class="op-stat-label">💰</span><span class="op-stat-value reward">+${e.formatMoney(reward.dirtyMoney)}</span></div>`;
-        if (reward.cleanMoney) html += `<div class="op-stat"><span class="op-stat-label">💵</span><span class="op-stat-value reward">+${e.formatMoney(reward.cleanMoney)}</span></div>`;
-        if (reward.supplies) html += `<div class="op-stat"><span class="op-stat-label">📦</span><span class="op-stat-value reward">+${reward.supplies}</span></div>`;
-        if (reward.influence) html += `<div class="op-stat"><span class="op-stat-label">⭐</span><span class="op-stat-value reward">+${reward.influence}</span></div>`;
+        if (reward.dirtyMoney) html += `<div class="op-stat"><span class="op-stat-label">${ico('dirty','ico-color-dirty')}</span><span class="op-stat-value reward">+${e.formatMoney(reward.dirtyMoney)}</span></div>`;
+        if (reward.cleanMoney) html += `<div class="op-stat"><span class="op-stat-label">${ico('clean','ico-color-clean')}</span><span class="op-stat-value reward">+${e.formatMoney(reward.cleanMoney)}</span></div>`;
+        if (reward.supplies) html += `<div class="op-stat"><span class="op-stat-label">${ico('supplies','ico-color-supplies')}</span><span class="op-stat-value reward">+${reward.supplies}</span></div>`;
+        if (reward.influence) html += `<div class="op-stat"><span class="op-stat-label">${ico('influence','ico-color-influence')}</span><span class="op-stat-value reward">+${reward.influence}</span></div>`;
 
         const costEntries = Object.entries(cost);
         for (const [res, val] of costEntries) {
-          const icon = res === 'supplies' ? '📦' : res === 'dirtyMoney' ? '💰' : res === 'cleanMoney' ? '💵' : res === 'influence' ? '⭐' : '';
-          html += `<div class="op-stat"><span class="op-stat-label">${icon}</span><span class="op-stat-value cost">-${res === 'dirtyMoney' || res === 'cleanMoney' ? e.formatMoney(val) : val}</span></div>`;
+          const iconName = res === 'supplies' ? 'supplies' : res === 'dirtyMoney' ? 'dirty' : res === 'cleanMoney' ? 'clean' : res === 'influence' ? 'influence' : '';
+          html += `<div class="op-stat"><span class="op-stat-label">${ico(iconName)}</span><span class="op-stat-value cost">-${res === 'dirtyMoney' || res === 'cleanMoney' ? e.formatMoney(val) : val}</span></div>`;
         }
 
-        html += `<div class="op-stat"><span class="op-stat-label">🔥</span><span class="op-stat-value heat">+${heat}</span></div>`;
-        html += `<div class="op-stat"><span class="op-stat-label">⏱️</span><span class="op-stat-value time">${duration}s</span></div>`;
+        html += `<div class="op-stat"><span class="op-stat-label">${ico('heat','ico-color-heat')}</span><span class="op-stat-value heat">+${heat}</span></div>`;
+        html += `<div class="op-stat"><span class="op-stat-label">${ico('clock','ico-color-blue')}</span><span class="op-stat-value time">${duration}s</span></div>`;
         html += `</div>`;
 
         html += `<div class="op-actions">`;
         if (!isRunning) {
-          html += `<button class="btn btn-primary btn-sm" onclick="window._engine.startOperation('${op.id}'); window._ui.renderOperationsTab();">▶ Start</button>`;
+          html += `<button class="btn btn-primary btn-sm" onclick="window._engine.startOperation('${op.id}'); window._ui.renderOperationsTab();">${ico('play')} Start</button>`;
         } else {
-          html += `<button class="btn btn-sm" disabled>⏳ Running...</button>`;
+          html += `<button class="btn btn-sm" disabled>${ico('clock')} Running...</button>`;
         }
         if (op.autoCapable) {
-          html += `<button class="btn btn-sm btn-auto ${autoOn ? 'active' : ''}" onclick="window._engine.toggleAutoOp('${op.id}'); window._ui.renderOperationsTab();">🔄 Auto${autoOn ? ' ON' : ''}</button>`;
+          html += `<button class="btn btn-sm btn-auto ${autoOn ? 'active' : ''}" onclick="window._engine.toggleAutoOp('${op.id}'); window._ui.renderOperationsTab();">${ico('refresh')} Auto${autoOn ? ' ON' : ''}</button>`;
         }
         html += `<span class="op-count">×${completions}</span>`;
         html += `</div>`;
@@ -242,7 +253,7 @@ export class UI {
         html += `<div class="op-stat"><span class="op-stat-label">Level:</span><span class="op-stat-value">${op.levelReq}</span></div>`;
         html += `</div>`;
         html += `<div class="op-actions">`;
-        html += `<button class="btn btn-primary btn-sm" onclick="window._engine.unlockOperation('${op.id}'); window._ui.renderOperationsTab();">🔓 Unlock (${e.formatMoney(op.unlockCost)})</button>`;
+        html += `<button class="btn btn-primary btn-sm" onclick="window._engine.unlockOperation('${op.id}'); window._ui.renderOperationsTab();">${ico('unlock')} Unlock (${e.formatMoney(op.unlockCost)})</button>`;
         html += `</div>`;
       } else {
         html += `<div class="op-stats">`;
@@ -300,16 +311,16 @@ export class UI {
           const costText = Object.entries(terr.costToExpand)
             .map(([res, val]) => `${res === 'dirtyMoney' ? '$' : res === 'cleanMoney' ? 'Clean $' : ''}${e.formatNum(val)}${res === 'influence' ? ' influence' : ''}`)
             .join(', ');
-          html += `<button class="btn btn-primary btn-sm" onclick="window._engine.expandTerritory('${terr.id}'); window._ui.renderTerritoryTab();">📍 Expand (${costText})</button>`;
+          html += `<button class="btn btn-primary btn-sm" onclick="window._engine.expandTerritory('${terr.id}'); window._ui.renderTerritoryTab();">${ico('territory')} Expand (${costText})</button>`;
         } else if (!expanding) {
           html += `<button class="btn btn-sm" onclick="window._engine.expandTerritory('${terr.id}'); window._ui.renderTerritoryTab();">▶ Resume Expansion</button>`;
         } else {
-          html += `<span style="font-size:12px;color:var(--accent-gold)">⏳ Expanding...</span>`;
+          html += `<span style="font-size:12px;color:var(--accent-gold)">${ico('clock','ico-color-gold')} Expanding...</span>`;
         }
       } else if (!canExpand) {
-        html += `<span style="font-size:12px;color:var(--text-muted)">🔒 Requires Level ${terr.levelReq}</span>`;
+        html += `<span style="font-size:12px;color:var(--text-muted)">${ico('lock')} Requires Level ${terr.levelReq}</span>`;
       } else {
-        html += `<span style="font-size:12px;color:var(--accent-green)">✅ Fully Controlled</span>`;
+        html += `<span style="font-size:12px;color:var(--accent-green)">${ico('check','ico-color-green')} Fully Controlled</span>`;
       }
 
       html += `</div>`;
@@ -328,7 +339,7 @@ export class UI {
 
     const cost = e.getRecruitCost();
     const recruitBtn = document.getElementById('btn-recruit');
-    recruitBtn.textContent = `👤 Recruit ($${e.formatNum(cost)})`;
+    recruitBtn.innerHTML = `${ico('user-plus')} Recruit ($${e.formatNum(cost)})`;
     recruitBtn.disabled = s.crew.length >= e.getMaxCrew() || s.resources.dirtyMoney < cost;
 
     const container = document.getElementById('crew-list');
@@ -377,7 +388,7 @@ export class UI {
     let html = '';
     for (const [catId, cat] of Object.entries(UPGRADES)) {
       html += `<div class="upgrade-category">`;
-      html += `<div class="upgrade-category-title">${cat.icon} ${cat.title}</div>`;
+      html += `<div class="upgrade-category-title">${ico(cat.icon, 'ico-lg ico-color-gold')} ${cat.title}</div>`;
       html += `<div class="upgrade-list">`;
 
       for (const item of cat.items) {
@@ -395,12 +406,12 @@ export class UI {
         html += `<div class="upgrade-level">Level ${currentLevel} / ${item.maxLevel}</div>`;
 
         if (isMaxed) {
-          html += `<button class="btn btn-sm" disabled>✅ MAXED</button>`;
+          html += `<button class="btn btn-sm" disabled>${ico('check','ico-color-green')} MAXED</button>`;
         } else if (isLocked) {
-          html += `<button class="btn btn-sm" disabled>🔒 Lv ${item.levelReq}</button>`;
+          html += `<button class="btn btn-sm" disabled>${ico('lock')} Lv ${item.levelReq}</button>`;
         } else {
-          const currIcon = item.currency === 'dirtyMoney' ? '💰' : '💵';
-          html += `<button class="btn btn-primary btn-sm" ${canBuy ? '' : 'disabled'} onclick="window._engine.purchaseUpgrade('${item.id}'); window._ui.renderUpgradesTab();">${currIcon} ${e.formatMoney(cost)}</button>`;
+          const currIco = item.currency === 'dirtyMoney' ? ico('dirty','ico-color-dirty') : ico('clean','ico-color-clean');
+          html += `<button class="btn btn-primary btn-sm" ${canBuy ? '' : 'disabled'} onclick="window._engine.purchaseUpgrade('${item.id}'); window._ui.renderUpgradesTab();">${currIco} ${e.formatMoney(cost)}</button>`;
         }
 
         html += `</div>`;
@@ -440,7 +451,7 @@ export class UI {
       const isLocked = s.level < front.levelReq;
 
       html += `<div class="front-card ${owned ? 'owned' : ''}">`;
-      html += `<div class="front-name">${owned ? '✅ ' : ''}${front.name}</div>`;
+      html += `<div class="front-name">${owned ? ico('check','ico-color-green')+' ' : ''}${front.name}</div>`;
       html += `<div class="front-desc">${front.desc}</div>`;
       html += `<div class="front-stats">`;
       html += `<span>Capacity: $${e.formatNum(front.launderCapacity)}/s</span>`;
@@ -450,10 +461,10 @@ export class UI {
       if (owned) {
         html += `<span style="font-size:11px;color:var(--accent-green)">Owned</span>`;
       } else if (isLocked) {
-        html += `<button class="btn btn-sm" disabled>🔒 Lv ${front.levelReq}</button>`;
+        html += `<button class="btn btn-sm" disabled>${ico('lock')} Lv ${front.levelReq}</button>`;
       } else {
         const costText = Object.entries(front.cost).map(([, v]) => e.formatMoney(v)).join(', ');
-        html += `<button class="btn btn-primary btn-sm" ${canBuy && canAffordObj(s, front.cost) ? '' : 'disabled'} onclick="window._engine.purchaseFront('${front.id}'); window._ui.renderLaunderingTab();">💵 Buy (${costText})</button>`;
+        html += `<button class="btn btn-primary btn-sm" ${canBuy && canAffordObj(s, front.cost) ? '' : 'disabled'} onclick="window._engine.purchaseFront('${front.id}'); window._ui.renderLaunderingTab();">${ico('clean','ico-color-clean')} Buy (${costText})</button>`;
       }
 
       html += `</div>`;
@@ -562,6 +573,156 @@ export class UI {
 
   hideModal() {
     document.getElementById('modal-overlay').classList.add('hidden');
+  }
+
+  // ===== FLOATING NUMBERS =====
+
+  spawnFloat(text, type = 'money', anchorEl) {
+    const container = document.getElementById('float-numbers');
+    if (!container) return;
+    const el = document.createElement('div');
+    el.className = `float-num ${type}`;
+    el.textContent = text;
+
+    // Position near the resource bar element if given, otherwise random top area
+    if (anchorEl) {
+      const rect = anchorEl.getBoundingClientRect();
+      el.style.left = (rect.left + rect.width / 2 + (Math.random() - 0.5) * 40) + 'px';
+      el.style.top = (rect.bottom + 4) + 'px';
+    } else {
+      el.style.left = (200 + Math.random() * 400) + 'px';
+      el.style.top = (80 + Math.random() * 40) + 'px';
+    }
+
+    container.appendChild(el);
+    setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 1600);
+  }
+
+  spawnRewardFloats(reward, xp) {
+    const e = this.engine;
+    if (reward.dirtyMoney) {
+      this.spawnFloat('+' + e.formatMoney(reward.dirtyMoney), 'money', document.getElementById('res-dirty'));
+    }
+    if (reward.cleanMoney) {
+      this.spawnFloat('+' + e.formatMoney(reward.cleanMoney), 'clean', document.getElementById('res-clean'));
+    }
+    if (reward.influence) {
+      this.spawnFloat('+' + reward.influence, 'influence', document.getElementById('res-influence'));
+    }
+    if (reward.supplies) {
+      this.spawnFloat('+' + reward.supplies, 'supplies', document.getElementById('res-supplies'));
+    }
+    if (xp > 0) {
+      this.spawnFloat('+' + xp + ' XP', 'xp');
+    }
+  }
+
+  // ===== LEVEL UP CELEBRATION =====
+
+  showLevelUp(level) {
+    const overlay = document.getElementById('levelup-overlay');
+    const lvText = document.getElementById('levelup-level');
+    if (!overlay || !lvText) return;
+    lvText.textContent = `Level ${level}`;
+    overlay.classList.remove('hidden');
+    setTimeout(() => {
+      overlay.classList.add('hidden');
+    }, 2200);
+  }
+
+  // ===== HEAT WARNING =====
+
+  updateHeatWarning() {
+    const heat = Math.floor(this.state.resources.heat);
+    const heatEl = document.querySelector('.heat-resource');
+    if (heatEl) {
+      if (heat >= 70) {
+        heatEl.classList.add('heat-danger');
+      } else {
+        heatEl.classList.remove('heat-danger');
+      }
+    }
+  }
+
+  // ===== OP CARD COMPLETION FLASH =====
+
+  flashOpComplete(opId) {
+    const card = document.querySelector(`.op-card[data-op="${opId}"]`);
+    if (card) {
+      card.classList.add('just-completed');
+      setTimeout(() => card.classList.remove('just-completed'), 700);
+    }
+  }
+
+  // ===== AMBIENT PARTICLE SYSTEM =====
+
+  initAmbientParticles() {
+    const canvas = document.getElementById('ambient-canvas');
+    if (!canvas) return;
+    this.ambientCtx = canvas.getContext('2d');
+    this.particles = [];
+
+    const resize = () => {
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight;
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Create particles
+    for (let i = 0; i < 40; i++) {
+      this.particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
+        r: 1 + Math.random() * 1.5,
+        alpha: 0.1 + Math.random() * 0.3,
+      });
+    }
+
+    const animate = () => {
+      requestAnimationFrame(animate);
+      this.drawAmbientParticles();
+    };
+    animate();
+  }
+
+  drawAmbientParticles() {
+    const ctx = this.ambientCtx;
+    const canvas = ctx.canvas;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (const p of this.particles) {
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.x < 0) p.x = canvas.width;
+      if (p.x > canvas.width) p.x = 0;
+      if (p.y < 0) p.y = canvas.height;
+      if (p.y > canvas.height) p.y = 0;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255, 215, 0, ${p.alpha})`;
+      ctx.fill();
+    }
+
+    // Draw connecting lines between close particles
+    for (let i = 0; i < this.particles.length; i++) {
+      for (let j = i + 1; j < this.particles.length; j++) {
+        const a = this.particles[i];
+        const b = this.particles[j];
+        const dist = Math.hypot(a.x - b.x, a.y - b.y);
+        if (dist < 100) {
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.strokeStyle = `rgba(255, 215, 0, ${0.06 * (1 - dist / 100)})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      }
+    }
   }
 }
 

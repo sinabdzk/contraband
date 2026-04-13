@@ -265,11 +265,16 @@ export class GameEngine {
     s.resources.heat = Math.min(CONFIG.MAX_HEAT, s.resources.heat + heat);
     s.stats.totalHeatGained += heat;
 
+    // Floating number particles
+    this.ui.spawnRewardFloats(reward, xp);
+    this.ui.flashOpComplete(opId);
+
     // XP
     const levelUps = addXP(s, xp);
     for (const lv of levelUps) {
-      this.ui.notify(`🎉 Level Up! You are now level ${lv}!`, 'unlock');
+      this.ui.notify(`Level Up! You are now level ${lv}!`, 'unlock');
       this.ui.addEvent(`Reached level ${lv}!`, 'unlock');
+      this.ui.showLevelUp(lv);
       this.checkNewUnlocks();
     }
 
@@ -320,7 +325,7 @@ export class GameEngine {
       s.resources.dirtyMoney -= opData.unlockCost;
     }
     s.operations.unlocked.push(opId);
-    this.ui.notify(`🔓 Unlocked: ${opData.name}!`, 'unlock');
+    this.ui.notify(`Unlocked: ${opData.name}!`, 'unlock');
     this.ui.addEvent(`Unlocked operation: ${opData.name}`, 'unlock');
     return true;
   }
@@ -349,7 +354,7 @@ export class GameEngine {
       }
       spendResources(s, terr.costToExpand);
       s.territories[terrId] = { control: 0, expanding: true };
-      this.ui.notify(`📍 Expanding into ${terr.name}!`, 'info');
+      this.ui.notify(`Expanding into ${terr.name}!`, 'info');
       this.ui.addEvent(`Started expanding into ${terr.name}`, 'info');
       return true;
     } else if (!s.territories[terrId].expanding && s.territories[terrId].control < 100) {
@@ -382,7 +387,7 @@ export class GameEngine {
         if (tData.control >= 100) {
           tData.control = 100;
           tData.expanding = false;
-          this.ui.notify(`🏴 ${terr.name} fully controlled!`, 'unlock');
+          this.ui.notify(`${terr.name} fully controlled!`, 'unlock');
           this.ui.addEvent(`Full control of ${terr.name}!`, 'unlock');
         }
       }
@@ -429,7 +434,7 @@ export class GameEngine {
     s.crew.push(member);
     s.stats.totalCrewHired++;
 
-    this.ui.notify(`👤 Recruited ${member.name} (${type.name})!`, 'success');
+    this.ui.notify(`Recruited ${member.name} (${type.name})!`, 'success');
     this.ui.addEvent(`Hired ${member.name} — ${type.name}`, 'info');
     return true;
   }
@@ -490,7 +495,7 @@ export class GameEngine {
 
     s.resources[item.currency] -= cost;
     s.upgrades[upgradeId] = currentLevel + 1;
-    this.ui.notify(`⬆️ ${item.name} upgraded to level ${currentLevel + 1}!`, 'success');
+    this.ui.notify(`${item.name} upgraded to level ${currentLevel + 1}!`, 'success');
     this.ui.addEvent(`Upgraded ${item.name} to Lv${currentLevel + 1}`, 'info');
     return true;
   }
@@ -521,7 +526,7 @@ export class GameEngine {
 
     spendResources(s, front.cost);
     s.laundering.fronts.push(frontId);
-    this.ui.notify(`🏢 Purchased ${front.name}!`, 'success');
+    this.ui.notify(`Purchased ${front.name}!`, 'success');
     this.ui.addEvent(`Bought ${front.name} as a front`, 'unlock');
     return true;
   }
@@ -614,7 +619,7 @@ export class GameEngine {
     for (const op of OPERATIONS) {
       if (op.levelReq <= s.level && !s.operations.unlocked.includes(op.id) && op.unlockCost === 0) {
         s.operations.unlocked.push(op.id);
-        this.ui.notify(`🔓 New operation available: ${op.name}!`, 'unlock');
+        this.ui.notify(`New operation available: ${op.name}!`, 'unlock');
       }
     }
   }

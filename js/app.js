@@ -32,7 +32,7 @@ function processOfflineProgress() {
 
       if (offlineEarnings > 0) {
         setTimeout(() => {
-          ui.notify(`💰 Earned ${engine.formatMoney(offlineEarnings)} while away (${formatTimeAway(offlineTicks)})!`, 'success');
+          ui.notify(`Earned ${engine.formatMoney(offlineEarnings)} while away (${formatTimeAway(offlineTicks)})!`, 'success');
           ui.addEvent(`Offline earnings: +${engine.formatMoney(offlineEarnings)}`, 'money');
         }, 2000);
       }
@@ -98,7 +98,7 @@ function boot() {
     if (e.ctrlKey && e.key === 's') {
       e.preventDefault();
       saveGame(state);
-      ui.notify('💾 Game saved!', 'success');
+      ui.notify('Game saved!', 'success');
     }
   });
 }

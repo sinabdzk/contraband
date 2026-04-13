@@ -28,6 +28,14 @@
   --font-display: 'Oswald', sans-serif;
   --font-mono: 'Share Tech Mono', monospace;
   --font-body: 'Inter', sans-serif;
+  /* Operation category colors */
+  --cat-drugs: #22ee66;
+  --cat-theft: #4488ff;
+  --cat-extortion: #ff8844;
+  --cat-fraud: #aa44ff;
+  --cat-trafficking: #ff3344;
+  --cat-cyber: #00ddff;
+  --cat-heist: #ffd700;
 }
 
 /* ===== RESET & BASE ===== */
@@ -141,12 +149,15 @@ body {
 }
 .level-badge {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--accent-gold);
   border: 1px solid var(--accent-gold-dim);
-  padding: 2px 8px;
+  padding: 4px 12px;
   border-radius: var(--radius-sm);
-  background: rgba(255,215,0,0.08);
+  background: rgba(255,215,0,0.12);
+  white-space: nowrap;
+  text-shadow: 0 0 8px rgba(255,215,0,0.3);
 }
 .resources-section {
   display: flex;
@@ -165,8 +176,22 @@ body {
   min-width: 140px;
 }
 .resource-icon {
-  font-size: 20px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
+.resource-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.icon-dirty { color: var(--accent-gold); }
+.icon-clean { color: var(--accent-green); }
+.icon-influence { color: var(--accent-purple); }
+.icon-heat { color: var(--accent-red); }
+.icon-supplies { color: var(--accent-cyan); }
 .resource-info {
   display: flex;
   flex-direction: column;
@@ -248,7 +273,7 @@ body {
 /* ===== MAIN LAYOUT ===== */
 #main-layout {
   display: grid;
-  grid-template-columns: 64px 1fr 260px;
+  grid-template-columns: 80px 1fr 260px;
   height: calc(100vh - 80px);
 }
 
@@ -265,8 +290,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 10px 4px;
+  gap: 3px;
+  padding: 10px 6px;
   background: none;
   border: none;
   color: var(--text-dim);
@@ -285,7 +310,15 @@ body {
   background: rgba(255,215,0,0.05);
 }
 .nav-icon {
-  font-size: 20px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.nav-icon svg {
+  width: 20px;
+  height: 20px;
 }
 .nav-label {
   font-size: 9px;
@@ -1005,6 +1038,73 @@ body {
   50% { box-shadow: 0 0 12px 2px rgba(255,215,0,0.2); }
 }
 
+/* ===== INLINE SVG ICON UTILITY ===== */
+.btn-icon {
+  width: 14px;
+  height: 14px;
+  vertical-align: -2px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.ico {
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  vertical-align: -2px;
+  flex-shrink: 0;
+}
+.ico-sm { width: 12px; height: 12px; }
+.ico-lg { width: 18px; height: 18px; vertical-align: -3px; }
+.ico-color-dirty { color: var(--accent-gold); }
+.ico-color-clean { color: var(--accent-green); }
+.ico-color-influence { color: var(--accent-purple); }
+.ico-color-heat { color: var(--accent-red); }
+.ico-color-supplies { color: var(--accent-cyan); }
+.ico-color-green { color: var(--accent-green); }
+.ico-color-red { color: var(--accent-red); }
+.ico-color-gold { color: var(--accent-gold); }
+.ico-color-blue { color: var(--accent-blue); }
+.ico-color-purple { color: var(--accent-purple); }
+
+/* ===== UI POLISH ===== */
+.op-card {
+  border-left: 3px solid transparent;
+}
+.op-card.running {
+  border-left-color: var(--accent-gold);
+}
+.op-card.locked {
+  border-left-color: var(--text-muted);
+}
+.territory-card {
+  border-left: 3px solid transparent;
+}
+.territory-card.controlled {
+  border-left-color: var(--accent-gold);
+}
+.crew-card {
+  border-left: 3px solid transparent;
+}
+.crew-card:hover {
+  border-left-color: var(--accent-blue);
+}
+.upgrade-item {
+  position: relative;
+}
+.upgrade-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--border);
+  border-radius: 2px 0 0 2px;
+}
+.upgrade-item.maxed::before {
+  background: var(--accent-gold);
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 1200px) {
   .resources-section { gap: 10px; }
@@ -1013,8 +1113,232 @@ body {
 }
 @media (max-width: 900px) {
   #main-layout {
-    grid-template-columns: 56px 1fr;
+    grid-template-columns: 64px 1fr;
   }
   #event-log { display: none; }
   .operations-grid { grid-template-columns: 1fr; }
+}
+
+/* ===== CITY SKYLINE BACKGROUND ===== */
+#content-area {
+  position: relative;
+}
+#city-skyline {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  pointer-events: none;
+  opacity: 0.06;
+  z-index: 0;
+  overflow: hidden;
+}
+.building {
+  background: var(--accent-gold);
+  border-radius: 2px 2px 0 0;
+  flex-shrink: 0;
+}
+.b1  { width: 28px; height: 55px; }
+.b2  { width: 18px; height: 80px; }
+.b3  { width: 32px; height: 45px; }
+.b4  { width: 14px; height: 100px; }
+.b5  { width: 38px; height: 35px; }
+.b6  { width: 20px; height: 70px; }
+.b7  { width: 16px; height: 110px; }
+.b8  { width: 30px; height: 50px; }
+.b9  { width: 22px; height: 85px; }
+.b10 { width: 36px; height: 40px; }
+.b11 { width: 12px; height: 95px; }
+.b12 { width: 26px; height: 60px; }
+
+/* ===== AMBIENT CANVAS ===== */
+#ambient-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+}
+#content-area > .tab-panel {
+  position: relative;
+  z-index: 1;
+}
+
+/* ===== FLOATING NUMBERS ===== */
+#float-numbers {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 900;
+  overflow: hidden;
+}
+.float-num {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 16px;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: floatUp 1.5s ease-out forwards;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+}
+.float-num.money { color: var(--accent-green); }
+.float-num.clean { color: var(--accent-blue); }
+.float-num.influence { color: var(--accent-purple); }
+.float-num.supplies { color: var(--accent-cyan); }
+.float-num.xp { color: var(--accent-gold); font-size: 13px; }
+.float-num.heat { color: var(--accent-red); }
+@keyframes floatUp {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  60% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-70px) scale(0.8); }
+}
+
+/* ===== LEVEL UP OVERLAY ===== */
+#levelup-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5000;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(4px);
+  animation: levelupIn 0.5s ease;
+}
+#levelup-overlay.hidden {
+  display: none;
+}
+.levelup-content {
+  text-align: center;
+  animation: levelupBounce 0.6s cubic-bezier(0.17, 0.67, 0.35, 1.5) forwards;
+}
+.levelup-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 16px;
+  color: var(--accent-gold);
+  filter: drop-shadow(0 0 20px rgba(255,215,0,0.6));
+  animation: levelupSpin 0.8s ease;
+}
+.levelup-icon svg {
+  width: 80px;
+  height: 80px;
+}
+.levelup-text {
+  font-family: var(--font-display);
+  font-size: 48px;
+  font-weight: 700;
+  color: var(--accent-gold);
+  letter-spacing: 8px;
+  text-shadow: 0 0 40px rgba(255,215,0,0.5), 0 0 80px rgba(255,215,0,0.2);
+}
+.levelup-level {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  color: var(--text);
+  margin-top: 8px;
+  letter-spacing: 4px;
+}
+@keyframes levelupIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes levelupBounce {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@keyframes levelupSpin {
+  0% { transform: rotateY(0deg); }
+  100% { transform: rotateY(360deg); }
+}
+
+/* ===== OPERATION CATEGORY COLORS ===== */
+.op-card[data-cat="Drugs"] { border-left-color: var(--cat-drugs); }
+.op-card[data-cat="Theft"] { border-left-color: var(--cat-theft); }
+.op-card[data-cat="Extortion"] { border-left-color: var(--cat-extortion); }
+.op-card[data-cat="Fraud"] { border-left-color: var(--cat-fraud); }
+.op-card[data-cat="Trafficking"] { border-left-color: var(--cat-trafficking); }
+.op-card[data-cat="Cyber"] { border-left-color: var(--cat-cyber); }
+.op-card[data-cat="Heist"] { border-left-color: var(--cat-heist); }
+.op-card.locked[data-cat] { border-left-color: var(--text-muted); }
+
+.op-category { font-weight: 600; }
+.op-card[data-cat="Drugs"] .op-category { color: var(--cat-drugs); border-color: var(--cat-drugs); }
+.op-card[data-cat="Theft"] .op-category { color: var(--cat-theft); border-color: var(--cat-theft); }
+.op-card[data-cat="Extortion"] .op-category { color: var(--cat-extortion); border-color: var(--cat-extortion); }
+.op-card[data-cat="Fraud"] .op-category { color: var(--cat-fraud); border-color: var(--cat-fraud); }
+.op-card[data-cat="Trafficking"] .op-category { color: var(--cat-trafficking); border-color: var(--cat-trafficking); }
+.op-card[data-cat="Cyber"] .op-category { color: var(--cat-cyber); border-color: var(--cat-cyber); }
+.op-card[data-cat="Heist"] .op-category { color: var(--cat-heist); border-color: var(--cat-heist); }
+
+/* ===== ENHANCED CARD ANIMATIONS ===== */
+.op-card {
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.op-card:hover:not(.locked) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.3);
+}
+.op-card.running {
+  box-shadow: inset 0 0 20px rgba(255,215,0,0.04);
+}
+.territory-card {
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.territory-card:hover:not(.locked) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.3);
+}
+.crew-card {
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.crew-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.3);
+}
+
+/* ===== COMPLETION FLASH ON OP CARD ===== */
+.op-card.just-completed {
+  animation: opComplete 0.6s ease;
+}
+@keyframes opComplete {
+  0% { box-shadow: 0 0 0 0 rgba(34,238,102,0.5); }
+  50% { box-shadow: 0 0 20px 4px rgba(34,238,102,0.2); }
+  100% { box-shadow: none; }
+}
+
+/* ===== OPERATION PROGRESS BAR GLOW ===== */
+.op-progress-bar {
+  position: relative;
+}
+.op-card.running .op-progress-bar::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -1px;
+  width: 8px;
+  height: 10px;
+  background: var(--accent-gold);
+  border-radius: 50%;
+  filter: blur(4px);
+  opacity: 0.8;
+}
+
+/* ===== HEAT WARNING PULSE ===== */
+.heat-resource.heat-danger {
+  animation: heatPulse 1s ease infinite;
+}
+@keyframes heatPulse {
+  0%, 100% { background: var(--bg-card); }
+  50% { background: rgba(255,51,68,0.12); }
 }
