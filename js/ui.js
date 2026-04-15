@@ -16,6 +16,8 @@ export class UI {
     this.lastResourceValues = {};
     this.ambientCtx = null;
     this.particles = [];
+    this.hoveringTab = false;
+    this.tabDirty = false;
   }
 
   init(engine, state) {
@@ -23,10 +25,25 @@ export class UI {
     this.state = state;
     this.bindNavigation();
     this.bindButtons();
+    this.bindHoverTracking();
     this.initAmbientParticles();
     this.renderAll();
     this.updateRankDisplay();
     this.updateRivalPanel();
+  }
+
+  // ===== HOVER TRACKING =====
+  // Skip full innerHTML re-renders while mouse is inside the tab content.
+  // This prevents the flicker caused by DOM destruction + recreation each tick.
+
+  bindHoverTracking() {
+    const main = document.getElementById('content-area');
+    if (!main) return;
+    main.addEventListener('mouseenter', () => { this.hoveringTab = true; });
+    main.addEventListener('mouseleave', () => {
+      this.hoveringTab = false;
+      if (this.tabDirty) { this.tabDirty = false; this.renderTabContent(); }
+    });
   }
 
   // ===== NAVIGATION =====
@@ -107,7 +124,11 @@ export class UI {
     this.updateRunningOps();
     this.updateRankDisplay();
     this.updateRivalPanel();
-    this.renderTabContent();
+    if (this.hoveringTab) {
+      this.tabDirty = true;
+    } else {
+      this.renderTabContent();
+    }
   }
 
   updateResources() {
@@ -787,38 +808,39 @@ export class UI {
     if (!s.crewCandidates || s.crewCandidates.length === 0) return;
 
     const cost = e.getRecruitCost();
-    let html = `<h3 class="recruit-title">Choose Your Recruit</h3>`;
-    html += `<p class="recruit-cost">Recruitment cost: <strong>${e.formatMoney(cost)}</strong></p>`;
+    let html = `<p class="recruit-cost">Cost: <strong>${e.formatMoney(cost)}</strong></p>`;
     html += `<div class="candidate-grid">`;
 
     s.crewCandidates.forEach((c, i) => {
       const type = CREW_TYPES.find(t => t.id === c.type);
-      html += `<div class="candidate-card" onclick="window._engine.hireCandidate(${i}); window._ui.hideModal(); window._ui.renderCrewTab();">`;
-      html += `<div class="candidate-header">`;
-      html += `<span class="candidate-name">${c.name}</span>`;
+      html += `<div class="candidate-card">`;
+      html += `<div class="candidate-info">`;
+      html += `<div class="candidate-name">${c.name}</div>`;
+      html += `<div class="candidate-meta">`;
       html += `<span class="crew-type ${type?.color || ''}">${type?.name || c.type}</span>`;
+      html += `<span>Lv ${c.level}</span>`;
+      html += `<span>Loyalty ${c.loyalty}%</span>`;
+      html += `</div>`;
+      html += `<div class="candidate-desc">${type?.desc || ''}</div>`;
       if (c.traits && c.traits.length > 0) {
+        html += `<div class="candidate-traits">`;
         for (const traitId of c.traits) {
           const trait = CREW_TRAITS.find(t => t.id === traitId);
           if (trait) {
             html += `<span class="trait-badge" style="border-color:${trait.color};color:${trait.color}" title="${trait.desc}">${trait.name}</span>`;
           }
         }
+        html += `</div>`;
       }
       html += `</div>`;
-      html += `<button class="btn btn-primary btn-sm candidate-hire">HIRE</button>`;
-      html += `<div class="candidate-stats">`;
-      html += `<div>Lv <strong>${c.level}</strong></div>`;
-      html += `<div>Loyalty <strong>${c.loyalty}%</strong></div>`;
-      html += `<div><em>${type?.desc || ''}</em></div>`;
-      html += `</div>`;
+      html += `<button class="btn btn-primary btn-sm candidate-hire" onclick="event.stopPropagation(); window._engine.hireCandidate(${i}); window._ui.hideModal(); window._ui.renderCrewTab();">HIRE</button>`;
       html += `</div>`;
     });
 
     html += `</div>`;
-    html += `<button class="btn btn-sm" onclick="window._ui.hideModal();" style="margin-top:12px;">Cancel</button>`;
+    html += `<div class="recruit-footer"><button class="btn btn-sm" onclick="window._ui.hideModal();">Cancel</button></div>`;
 
-    this.showModal('Recruitment', html);
+    this.showModal('Choose Your Recruit', html);
   }
 
   // ===== RIVAL PANEL =====
