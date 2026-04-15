@@ -1250,27 +1250,27 @@ body {
 
 /* ===== ENHANCED CARD ANIMATIONS ===== */
 .op-card {
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 .op-card:hover:not(.locked) {
-  transform: translateY(-2px);
+  border-color: var(--accent-gold);
   box-shadow: 0 6px 24px rgba(0,0,0,0.3);
 }
 .op-card.running {
   box-shadow: inset 0 0 20px rgba(255,215,0,0.04);
 }
 .territory-card {
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .territory-card:hover:not(.locked) {
-  transform: translateY(-2px);
+  border-color: var(--accent-gold);
   box-shadow: 0 6px 24px rgba(0,0,0,0.3);
 }
 .crew-card {
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .crew-card:hover {
-  transform: translateY(-2px);
+  border-color: var(--accent-gold);
   box-shadow: 0 6px 24px rgba(0,0,0,0.3);
 }
 
@@ -1490,7 +1490,6 @@ body {
 .candidate-card:hover {
   border-color: var(--accent-gold);
   background: rgba(255, 215, 0, 0.04);
-  transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(0,0,0,0.3);
 }
 
@@ -1759,7 +1758,7 @@ body {
 .supply-btn:hover:not(:disabled):not(.locked) {
   border-color: var(--accent-cyan);
   background: rgba(56, 189, 248, 0.06);
-  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
 }
 
 .supply-btn:disabled {
@@ -1858,7 +1857,6 @@ body {
 .map-district:hover {
   border-color: var(--accent-gold);
   z-index: 2;
-  transform: scale(1.02);
   box-shadow: 0 8px 30px rgba(0,0,0,0.4);
 }
 
