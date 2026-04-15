@@ -1119,42 +1119,9 @@ body {
   .operations-grid { grid-template-columns: 1fr; }
 }
 
-/* ===== CITY SKYLINE BACKGROUND ===== */
 #content-area {
   position: relative;
 }
-#city-skyline {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 120px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 3px;
-  pointer-events: none;
-  opacity: 0.06;
-  z-index: 0;
-  overflow: hidden;
-}
-.building {
-  background: var(--accent-gold);
-  border-radius: 2px 2px 0 0;
-  flex-shrink: 0;
-}
-.b1  { width: 28px; height: 55px; }
-.b2  { width: 18px; height: 80px; }
-.b3  { width: 32px; height: 45px; }
-.b4  { width: 14px; height: 100px; }
-.b5  { width: 38px; height: 35px; }
-.b6  { width: 20px; height: 70px; }
-.b7  { width: 16px; height: 110px; }
-.b8  { width: 30px; height: 50px; }
-.b9  { width: 22px; height: 85px; }
-.b10 { width: 36px; height: 40px; }
-.b11 { width: 12px; height: 95px; }
-.b12 { width: 26px; height: 60px; }
 
 /* ===== AMBIENT CANVAS ===== */
 #ambient-canvas {
@@ -1729,6 +1696,398 @@ body {
   background: var(--bg-body);
   color: var(--text-muted);
   cursor: not-allowed;
+}
+
+/* ============================================================
+   SUPPLY MARKET
+   ============================================================ */
+
+.supply-market-section {
+  background: rgba(56, 189, 248, 0.04);
+  border: 1px solid rgba(56, 189, 248, 0.15);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 20px;
+}
+
+.supply-market-header {
+  font-family: 'Oswald', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.supply-count {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  color: var(--accent-cyan);
+  margin-left: auto;
+}
+
+.supply-market-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 0 0 12px;
+}
+
+.supply-market-grid {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.supply-btn {
+  background: var(--bg-body);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: inherit;
+  color: inherit;
+  min-width: 120px;
+  flex: 1;
+}
+
+.supply-btn:hover:not(:disabled):not(.locked) {
+  border-color: var(--accent-cyan);
+  background: rgba(56, 189, 248, 0.06);
+  transform: translateY(-1px);
+}
+
+.supply-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.supply-btn.locked {
+  opacity: 0.3;
+}
+
+.supply-btn-name {
+  font-family: 'Oswald', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.supply-btn-yield {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-cyan);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.supply-btn-cost {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: 'Share Tech Mono', monospace;
+}
+
+.supply-btn-lock {
+  font-size: 9px;
+  color: var(--accent-red);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   OPERATION CREW REQUIREMENT BADGE
+   ============================================================ */
+
+.op-crew-req {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'Share Tech Mono', monospace;
+  margin-bottom: 4px;
+}
+
+.op-crew-req.met {
+  background: rgba(74, 222, 128, 0.1);
+  color: var(--accent-green);
+  border: 1px solid rgba(74, 222, 128, 0.2);
+}
+
+.op-crew-req.unmet {
+  background: rgba(255, 51, 68, 0.1);
+  color: var(--accent-red);
+  border: 1px solid rgba(255, 51, 68, 0.2);
+}
+
+.ico-sm {
+  width: 12px;
+  height: 12px;
+}
+
+/* ============================================================
+   TERRITORY MAP (visual grid)
+   ============================================================ */
+
+.territory-map-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  grid-template-rows: repeat(4, minmax(130px, auto));
+  gap: 6px;
+  padding: 8px;
+}
+
+.map-district {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: default;
+  transition: all 0.3s ease;
+  min-height: 130px;
+}
+
+.map-district:hover {
+  border-color: var(--accent-gold);
+  z-index: 2;
+  transform: scale(1.02);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+}
+
+.map-district.locked {
+  opacity: 0.45;
+}
+
+.map-district.controlled {
+  border-color: var(--accent-green);
+  box-shadow: inset 0 0 20px rgba(74, 222, 128, 0.08);
+}
+
+.map-district.expanding {
+  border-color: var(--accent-gold);
+  animation: mapPulse 2s ease-in-out infinite;
+}
+
+@keyframes mapPulse {
+  0%, 100% { box-shadow: inset 0 0 10px rgba(255, 215, 0, 0.05); }
+  50% { box-shadow: inset 0 0 25px rgba(255, 215, 0, 0.12); }
+}
+
+.district-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(74, 222, 128, 0.15), rgba(74, 222, 128, 0.03));
+  pointer-events: none;
+  transition: height 0.5s ease;
+  border-radius: 0 0 10px 10px;
+}
+
+.district-content {
+  position: relative;
+  z-index: 1;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 4px;
+}
+
+.district-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.district-name {
+  font-family: 'Oswald', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.district-diff {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: 'Share Tech Mono', monospace;
+}
+
+.district-diff.diff-easy { background: rgba(74, 222, 128, 0.15); color: var(--accent-green); }
+.district-diff.diff-medium { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+.district-diff.diff-hard { background: rgba(248, 113, 113, 0.15); color: #f87171; }
+.district-diff.diff-extreme { background: rgba(167, 139, 250, 0.15); color: #a78bfa; }
+
+.district-control-text {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent-green);
+}
+
+.district-bonuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.district-bonus {
+  font-size: 9px;
+  color: var(--accent-gold);
+  background: rgba(255, 215, 0, 0.08);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.district-btn {
+  margin-top: auto;
+}
+
+.district-expanding {
+  font-size: 10px;
+  color: var(--accent-gold);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: auto;
+}
+
+.district-locked-text {
+  font-size: 10px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: auto;
+}
+
+.district-owned {
+  font-size: 10px;
+  color: var(--accent-green);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: auto;
+}
+
+/* ============================================================
+   MINI-GAME OVERLAY
+   ============================================================ */
+
+#minigame-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(6px);
+  z-index: 6000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#minigame-overlay.hidden {
+  display: none;
+}
+
+.minigame-box {
+  background: var(--bg-panel);
+  border: 2px solid var(--accent-gold);
+  border-radius: 16px;
+  padding: 32px 40px;
+  max-width: 480px;
+  width: 90%;
+  text-align: center;
+  animation: dilemmaSlideIn 0.3s ease-out;
+}
+
+.minigame-icon {
+  margin-bottom: 8px;
+}
+
+.minigame-title {
+  font-family: 'Oswald', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent-gold);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin: 0 0 6px;
+}
+
+.minigame-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 4px;
+}
+
+.minigame-op-name {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 600;
+  margin: 0 0 20px;
+}
+
+.minigame-meter {
+  position: relative;
+  height: 40px;
+  border-radius: 8px;
+  overflow: visible;
+  border: 2px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.minigame-needle {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 4px;
+  background: #fff;
+  border-radius: 2px;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 20px rgba(255, 255, 255, 0.4);
+  transform: translateX(-50%);
+  transition: none;
+}
+
+.minigame-zone-labels {
+  display: flex;
+  margin-bottom: 20px;
+}
+
+.minigame-zone-labels span {
+  text-align: center;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: 'Share Tech Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.minigame-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.minigame-lock-btn {
+  font-size: 18px !important;
+  padding: 12px 48px !important;
+  letter-spacing: 3px;
+  font-family: 'Oswald', sans-serif !important;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
 /* ============================================================

@@ -3,14 +3,14 @@ import { CONFIG, OPERATIONS, TERRITORIES, RIVAL_NAMES } from './data.js';
 
 export function createNewState() {
   return {
-    version: 3,
+    version: 4,
     resources: { ...CONFIG.STARTING_RESOURCES },
     level: 1,
     xp: 0,
     xpToNext: CONFIG.BASE_XP_PER_LEVEL,
     operations: {
       unlocked: ['street_dealing'],
-      running: [],       // { id, startedAt (tick), duration, assignedCrew[] }
+      running: [],       // { id, startedAt (tick), duration, rewardMultiplier }
       autoEnabled: {},    // opId -> bool
       completions: {},    // opId -> count
     },
@@ -31,6 +31,7 @@ export function createNewState() {
     },
     dilemma: null,          // active dilemma event waiting for choice
     crewCandidates: [],     // 3 candidates for recruitment choice
+    pendingMiniGame: null,  // { opId, gameType } — waiting for mini-game result
     prestige: {
       count: 0,
       totalCleanLifetime: 0,
@@ -56,7 +57,7 @@ export function createNewState() {
   };
 }
 
-const SAVE_KEY = 'contraband_save_v3';
+const SAVE_KEY = 'contraband_save_v4';
 
 export function saveGame(state) {
   try {
@@ -73,7 +74,8 @@ export function saveGame(state) {
 export function loadGame() {
   try {
     let json = localStorage.getItem(SAVE_KEY);
-    // Also check old save key for migration
+    // Also check old save keys for migration
+    if (!json) json = localStorage.getItem('contraband_save_v3');
     if (!json) json = localStorage.getItem('contraband_save_v2');
     if (!json) return null;
     const state = JSON.parse(json);
@@ -123,7 +125,11 @@ function migrateState(state) {
   if (!state.crewCandidates) state.crewCandidates = [];
   // Migrate crew traits
   for (const c of state.crew) { if (!c.traits) c.traits = []; }
-  state.version = 3;
+  // V4 migrations
+  if (state.pendingMiniGame === undefined) state.pendingMiniGame = null;
+  // Ensure running ops have rewardMultiplier
+  for (const r of state.operations.running) { if (!r.rewardMultiplier) r.rewardMultiplier = 1; }
+  state.version = 4;
   return state;
 }
 

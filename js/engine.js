@@ -1,5 +1,5 @@
 // ===== GAME ENGINE - Core game loop and all systems =====
-import { CONFIG, OPERATIONS, TERRITORIES, CREW_TYPES, CREW_FIRST_NAMES, CREW_LAST_NAMES, UPGRADES, FRONTS, EVENTS, DILEMMAS, CREW_TRAITS, RANKS, RIVAL_NAMES, MAINTENANCE } from './data.js';
+import { CONFIG, OPERATIONS, TERRITORIES, CREW_TYPES, CREW_FIRST_NAMES, CREW_LAST_NAMES, UPGRADES, FRONTS, EVENTS, DILEMMAS, CREW_TRAITS, RANKS, RIVAL_NAMES, MAINTENANCE, SUPPLY_MARKET, MINI_GAMES } from './data.js';
 import { addXP, canAfford, spendResources, saveGame, xpForLevel } from './state.js';
 
 export class GameEngine {
@@ -227,11 +227,18 @@ export class GameEngine {
 
   // ===== ACTIONS =====
 
-  startOperation(opId) {
+  startOperation(opId, rewardMultiplier = 1) {
     const s = this.state;
     const opData = OPERATIONS.find(o => o.id === opId);
     if (!opData) return false;
     if (!s.operations.unlocked.includes(opId)) return false;
+
+    // Check crew requirement
+    const minCrew = opData.minCrew || 0;
+    if (s.crew.length < minCrew) {
+      this.ui.notify(`Need at least ${minCrew} crew member${minCrew > 1 ? 's' : ''}!`, 'warning');
+      return false;
+    }
 
     // Check max simultaneous
     if (s.operations.running.length >= this.getMaxSimultaneousOps()) {
@@ -251,14 +258,59 @@ export class GameEngine {
       return false;
     }
 
+    // Mini-game check (manual play only, not from auto or post-minigame)
+    if (opData.miniGame && rewardMultiplier === 1 && !s.pendingMiniGame) {
+      // Verify we can afford before showing mini-game
+      s.pendingMiniGame = { opId, gameType: opData.miniGame };
+      this.ui.showMiniGame(opData.miniGame, opData);
+      return 'minigame';
+    }
+
     spendResources(s, cost);
     const duration = this.getOpDuration(opData);
     s.operations.running.push({
       id: opId,
       startTick: s.tickCount,
       duration: duration,
+      rewardMultiplier: rewardMultiplier,
     });
     return true;
+  }
+
+  completeMiniGame(position) {
+    const s = this.state;
+    if (!s.pendingMiniGame) return;
+    const { opId, gameType } = s.pendingMiniGame;
+    const config = MINI_GAMES[gameType];
+    if (!config) { s.pendingMiniGame = null; return; }
+
+    // Determine zone
+    let zone = config.zones[0];
+    for (const z of config.zones) {
+      if (position >= z.start && position < z.end) { zone = z; break; }
+    }
+
+    // Apply extra heat from bad result
+    if (zone.heat > 0) {
+      s.resources.heat = Math.min(CONFIG.MAX_HEAT, s.resources.heat + zone.heat);
+    }
+
+    const multiplier = zone.multiplier;
+    s.pendingMiniGame = null;
+    this.ui.hideMiniGame();
+
+    // Show result
+    const label = zone.label;
+    const type = multiplier >= 1.0 ? 'success' : multiplier >= 0.6 ? 'warning' : 'danger';
+    this.ui.notify(`${label}! ${Math.floor(multiplier * 100)}% yield`, type);
+
+    // Now actually start the operation with the multiplier
+    this.startOperation(opId, multiplier);
+  }
+
+  cancelMiniGame() {
+    this.state.pendingMiniGame = null;
+    this.ui.hideMiniGame();
   }
 
   processOperations() {
@@ -275,24 +327,26 @@ export class GameEngine {
     }
 
     for (const run of completed) {
-      this.completeOperation(run.id);
+      this.completeOperation(run);
     }
   }
 
-  completeOperation(opId) {
+  completeOperation(run) {
     const s = this.state;
-    const opData = OPERATIONS.find(o => o.id === opId);
+    const opData = OPERATIONS.find(o => o.id === run.id);
     if (!opData) return;
 
     const reward = this.getOpReward(opData);
     const heat = this.getOpHeat(opData);
     const xp = this.getOpXP(opData);
+    const multiplier = run.rewardMultiplier || 1;
 
-    // Apply rewards
+    // Apply rewards with mini-game multiplier
     for (const [res, amount] of Object.entries(reward)) {
-      s.resources[res] = (s.resources[res] || 0) + amount;
-      if (res === 'dirtyMoney') s.stats.totalDirtyEarned += amount;
-      if (res === 'cleanMoney') s.stats.totalCleanEarned += amount;
+      const adjusted = (res === 'dirtyMoney' || res === 'cleanMoney') ? Math.floor(amount * multiplier) : amount;
+      s.resources[res] = (s.resources[res] || 0) + adjusted;
+      if (res === 'dirtyMoney') s.stats.totalDirtyEarned += adjusted;
+      if (res === 'cleanMoney') s.stats.totalCleanEarned += adjusted;
     }
 
     // Apply heat
@@ -301,7 +355,7 @@ export class GameEngine {
 
     // Floating number particles
     this.ui.spawnRewardFloats(reward, xp);
-    this.ui.flashOpComplete(opId);
+    this.ui.flashOpComplete(run.id);
 
     // XP
     const levelUps = addXP(s, xp);
@@ -316,7 +370,7 @@ export class GameEngine {
     this.giveCrewXP(1);
 
     // Stats
-    s.operations.completions[opId] = (s.operations.completions[opId] || 0) + 1;
+    s.operations.completions[run.id] = (s.operations.completions[run.id] || 0) + 1;
     s.stats.totalOperations++;
 
     // Notifications
@@ -332,14 +386,20 @@ export class GameEngine {
       if (!s.operations.autoEnabled[opId]) continue;
       const opData = OPERATIONS.find(o => o.id === opId);
       if (!opData || !opData.autoCapable) continue;
+      // Auto requires level threshold
+      if (opData.autoReq && s.level < opData.autoReq) continue;
       // Don't auto-start if already running
       if (s.operations.running.some(r => r.id === opId)) continue;
       // Check if we have room
       if (s.operations.running.length >= this.getMaxSimultaneousOps()) continue;
+      // Check crew requirement
+      if (opData.minCrew && s.crew.length < opData.minCrew) continue;
 
       const cost = this.getOpCost(opData);
       if (canAfford(s, cost)) {
-        this.startOperation(opId);
+        // Auto-ops skip mini-game with reduced multiplier (0.7x)
+        const autoMultiplier = opData.miniGame ? 0.7 : 1;
+        this.startOperation(opId, autoMultiplier);
       }
     }
   }
@@ -366,7 +426,37 @@ export class GameEngine {
 
   toggleAutoOp(opId) {
     const s = this.state;
+    const opData = OPERATIONS.find(o => o.id === opId);
+    // Check auto level requirement
+    if (opData && opData.autoReq && s.level < opData.autoReq) {
+      this.ui.notify(`Auto requires level ${opData.autoReq}!`, 'warning');
+      return;
+    }
     s.operations.autoEnabled[opId] = !s.operations.autoEnabled[opId];
+  }
+
+  // ===== SUPPLY MARKET =====
+
+  buySupplies(sourceId) {
+    const s = this.state;
+    const source = SUPPLY_MARKET.find(src => src.id === sourceId);
+    if (!source) return false;
+    if (s.level < source.levelReq) {
+      this.ui.notify(`Requires level ${source.levelReq}!`, 'warning');
+      return false;
+    }
+    if (!canAfford(s, source.cost)) {
+      this.ui.notify('Not enough resources!', 'danger');
+      return false;
+    }
+    spendResources(s, source.cost);
+    s.resources.supplies += source.yield;
+    if (source.heatGain) {
+      s.resources.heat = Math.min(CONFIG.MAX_HEAT, s.resources.heat + source.heatGain);
+    }
+    this.ui.notify(`+${source.yield} supplies from ${source.name}`, 'success');
+    this.ui.addEvent(`Bought ${source.yield} supplies via ${source.name}`, 'info');
+    return true;
   }
 
   // ===== TERRITORY =====

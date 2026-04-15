@@ -1,5 +1,5 @@
 // ===== UI MANAGER - All rendering and DOM interaction =====
-import { OPERATIONS, TERRITORIES, CREW_TYPES, UPGRADES, FRONTS, CONFIG, DILEMMAS, CREW_TRAITS, RANKS, MAINTENANCE } from './data.js';
+import { OPERATIONS, TERRITORIES, CREW_TYPES, UPGRADES, FRONTS, CONFIG, DILEMMAS, CREW_TRAITS, RANKS, MAINTENANCE, SUPPLY_MARKET, MINI_GAMES, TERRITORY_MAP } from './data.js';
 
 // SVG icon helper - returns inline <svg> using the sprite
 function ico(name, cls = '') {
@@ -207,14 +207,41 @@ export class UI {
     const e = this.engine;
 
     let html = '';
+
+    // ===== SUPPLY MARKET SECTION =====
+    html += `<div class="supply-market-section">`;
+    html += `<div class="supply-market-header">${ico('supplies','ico-lg ico-color-supplies')} Supply Market <span class="supply-count">${Math.floor(s.resources.supplies)} in stock</span></div>`;
+    html += `<p class="supply-market-desc">Product doesn't appear from nowhere. Source your supplies here.</p>`;
+    html += `<div class="supply-market-grid">`;
+    for (const src of SUPPLY_MARKET) {
+      const canBuy = s.level >= src.levelReq && canAffordObj(s, src.cost);
+      const locked = s.level < src.levelReq;
+      const costText = Object.entries(src.cost).map(([res, val]) => {
+        if (res === 'dirtyMoney') return '$' + e.formatNum(val);
+        if (res === 'influence') return val + ' inf';
+        return val + ' ' + res;
+      }).join(' + ');
+      html += `<button class="supply-btn ${locked ? 'locked' : ''}" ${canBuy ? '' : 'disabled'} onclick="window._engine.buySupplies('${src.id}'); window._ui.renderOperationsTab();">`;
+      html += `<span class="supply-btn-name">${src.name}</span>`;
+      html += `<span class="supply-btn-yield">+${src.yield} ${ico('supplies','ico-sm')}</span>`;
+      html += `<span class="supply-btn-cost">${costText}${src.heatGain > 1 ? ' · +' + src.heatGain + ' heat' : ''}</span>`;
+      if (locked) html += `<span class="supply-btn-lock">Lv ${src.levelReq}</span>`;
+      html += `</button>`;
+    }
+    html += `</div></div>`;
+
+    // ===== OPERATIONS LIST =====
     for (const op of OPERATIONS) {
       const unlocked = s.operations.unlocked.includes(op.id);
       const canUnlock = !unlocked && s.level >= op.levelReq;
       const isRunning = s.operations.running.some(r => r.id === op.id);
       const autoOn = s.operations.autoEnabled[op.id];
       const completions = s.operations.completions[op.id] || 0;
+      const minCrew = op.minCrew || 0;
+      const hasEnoughCrew = s.crew.length >= minCrew;
+      const autoLocked = op.autoReq && s.level < op.autoReq;
 
-      if (!unlocked && !canUnlock && s.level < op.levelReq - 3) continue; // Hide if too far away
+      if (!unlocked && !canUnlock && s.level < op.levelReq - 3) continue;
 
       const cost = unlocked ? e.getOpCost(op) : {};
       const reward = e.getOpReward(op);
@@ -229,6 +256,12 @@ export class UI {
       html += `<span class="op-category">${op.category}</span>`;
       html += `</div>`;
       html += `<p class="op-desc">${op.desc}</p>`;
+
+      // Crew requirement badge
+      if (unlocked && minCrew > 0) {
+        const crewOk = hasEnoughCrew;
+        html += `<div class="op-crew-req ${crewOk ? 'met' : 'unmet'}">${ico('crew','ico-sm')} ${s.crew.length}/${minCrew} crew${op.miniGame ? ' · ' + ico(MINI_GAMES[op.miniGame]?.icon || 'ops','ico-sm') + ' Mini-game' : ''}</div>`;
+      }
 
       if (unlocked) {
         html += `<div class="op-progress-container">`;
@@ -252,12 +285,17 @@ export class UI {
 
         html += `<div class="op-actions">`;
         if (!isRunning) {
-          html += `<button class="btn btn-primary btn-sm" onclick="window._engine.startOperation('${op.id}'); window._ui.renderOperationsTab();">${ico('play')} Start</button>`;
+          const canStart = hasEnoughCrew && canAffordObj(s, cost);
+          html += `<button class="btn btn-primary btn-sm" ${canStart ? '' : 'disabled'} onclick="window._engine.startOperation('${op.id}'); window._ui.renderOperationsTab();">${ico('play')} ${op.miniGame ? 'Cook' : 'Start'}</button>`;
         } else {
           html += `<button class="btn btn-sm" disabled>${ico('clock')} Running...</button>`;
         }
         if (op.autoCapable) {
-          html += `<button class="btn btn-sm btn-auto ${autoOn ? 'active' : ''}" onclick="window._engine.toggleAutoOp('${op.id}'); window._ui.renderOperationsTab();">${ico('refresh')} Auto${autoOn ? ' ON' : ''}</button>`;
+          if (autoLocked) {
+            html += `<button class="btn btn-sm" disabled title="Auto unlocks at level ${op.autoReq}">${ico('lock')} Auto (Lv${op.autoReq})</button>`;
+          } else {
+            html += `<button class="btn btn-sm btn-auto ${autoOn ? 'active' : ''}" onclick="window._engine.toggleAutoOp('${op.id}'); window._ui.renderOperationsTab();">${ico('refresh')} Auto${autoOn ? ' ON' : ''}</button>`;
+          }
         }
         html += `<span class="op-count">×${completions}</span>`;
         html += `</div>`;
@@ -265,6 +303,7 @@ export class UI {
         html += `<div class="op-stats">`;
         html += `<div class="op-stat"><span class="op-stat-label">Unlock Cost:</span><span class="op-stat-value cost">${e.formatMoney(op.unlockCost)}</span></div>`;
         html += `<div class="op-stat"><span class="op-stat-label">Level:</span><span class="op-stat-value">${op.levelReq}</span></div>`;
+        html += `<div class="op-stat"><span class="op-stat-label">Crew needed:</span><span class="op-stat-value">${op.minCrew || 0}</span></div>`;
         html += `</div>`;
         html += `<div class="op-actions">`;
         html += `<button class="btn btn-primary btn-sm" onclick="window._engine.unlockOperation('${op.id}'); window._ui.renderOperationsTab();">${ico('unlock')} Unlock (${e.formatMoney(op.unlockCost)})</button>`;
@@ -288,58 +327,64 @@ export class UI {
     const s = this.state;
     const e = this.engine;
 
-    let html = '';
+    let html = '<div class="territory-map-grid">';
+
     for (const terr of TERRITORIES) {
       const tData = s.territories[terr.id];
       const control = tData ? Math.floor(tData.control) : 0;
       const expanding = tData ? tData.expanding : false;
       const canExpand = s.level >= terr.levelReq;
       const isOwned = control >= 100;
+      const pos = TERRITORY_MAP[terr.id];
 
       const diffClass = `diff-${terr.difficulty}`;
-      const cardClass = `territory-card ${isOwned ? 'controlled' : ''} ${!canExpand ? 'locked' : ''}`;
+      const cardClass = `map-district ${isOwned ? 'controlled' : ''} ${!canExpand ? 'locked' : ''} ${expanding ? 'expanding' : ''}`;
 
-      html += `<div class="${cardClass}">`;
-      html += `<div class="territory-header">`;
-      html += `<span class="territory-name">${terr.name}</span>`;
-      html += `<span class="territory-difficulty ${diffClass}">${terr.difficulty.toUpperCase()}</span>`;
-      html += `</div>`;
-      html += `<p class="territory-desc">${terr.desc}</p>`;
+      const style = pos ? `grid-column: ${pos.col}; grid-row: ${pos.row};` : '';
 
-      // Control bar
-      html += `<div class="territory-control">`;
-      html += `<div class="control-label"><span>Control</span><span>${control}%${expanding ? ' (expanding...)' : ''}</span></div>`;
-      html += `<div class="control-bar-container"><div class="control-bar" style="width:${control}%"></div></div>`;
+      html += `<div class="${cardClass}" style="${style}" data-terr="${terr.id}">`;
+
+      // Control fill overlay
+      html += `<div class="district-fill" style="height:${control}%"></div>`;
+
+      html += `<div class="district-content">`;
+      html += `<div class="district-header">`;
+      html += `<span class="district-name">${terr.name}</span>`;
+      html += `<span class="district-diff ${diffClass}">${terr.difficulty}</span>`;
       html += `</div>`;
+
+      html += `<div class="district-control-text">${control}%${expanding ? ' ▲' : ''}</div>`;
 
       // Bonuses
-      html += `<div class="territory-bonuses">`;
+      html += `<div class="district-bonuses">`;
       for (const bonus of terr.bonusText) {
-        html += `<span class="territory-bonus">${bonus}</span>`;
+        html += `<span class="district-bonus">${bonus}</span>`;
       }
       html += `</div>`;
 
-      // Actions
+      // Action
       if (canExpand && !isOwned) {
         if (!tData) {
           const costText = Object.entries(terr.costToExpand)
-            .map(([res, val]) => `${res === 'dirtyMoney' ? '$' : res === 'cleanMoney' ? 'Clean $' : ''}${e.formatNum(val)}${res === 'influence' ? ' influence' : ''}`)
+            .map(([res, val]) => `${res === 'dirtyMoney' ? '$' : res === 'cleanMoney' ? 'Clean $' : ''}${e.formatNum(val)}${res === 'influence' ? ' inf' : ''}`)
             .join(', ');
-          html += `<button class="btn btn-primary btn-sm" onclick="window._engine.expandTerritory('${terr.id}'); window._ui.renderTerritoryTab();">${ico('territory')} Expand (${costText})</button>`;
+          html += `<button class="btn btn-primary btn-xs district-btn" onclick="window._engine.expandTerritory('${terr.id}'); window._ui.renderTerritoryTab();">Expand (${costText})</button>`;
         } else if (!expanding) {
-          html += `<button class="btn btn-sm" onclick="window._engine.expandTerritory('${terr.id}'); window._ui.renderTerritoryTab();">▶ Resume Expansion</button>`;
+          html += `<button class="btn btn-xs district-btn" onclick="window._engine.expandTerritory('${terr.id}'); window._ui.renderTerritoryTab();">Resume</button>`;
         } else {
-          html += `<span style="font-size:12px;color:var(--accent-gold)">${ico('clock','ico-color-gold')} Expanding...</span>`;
+          html += `<span class="district-expanding">${ico('clock','ico-sm ico-color-gold')} Expanding...</span>`;
         }
       } else if (!canExpand) {
-        html += `<span style="font-size:12px;color:var(--text-muted)">${ico('lock')} Requires Level ${terr.levelReq}</span>`;
+        html += `<span class="district-locked-text">${ico('lock','ico-sm')} Lv ${terr.levelReq}</span>`;
       } else {
-        html += `<span style="font-size:12px;color:var(--accent-green)">${ico('check','ico-color-green')} Fully Controlled</span>`;
+        html += `<span class="district-owned">${ico('check','ico-sm ico-color-green')} Controlled</span>`;
       }
 
       html += `</div>`;
+      html += `</div>`;
     }
 
+    html += '</div>';
     container.innerHTML = html;
   }
 
@@ -653,6 +698,81 @@ export class UI {
 
   hideDilemma() {
     const overlay = document.getElementById('dilemma-overlay');
+    if (overlay) overlay.classList.add('hidden');
+  }
+
+  // ===== MINI-GAME SYSTEM =====
+
+  showMiniGame(gameType, opData) {
+    const config = MINI_GAMES[gameType];
+    if (!config) return;
+    const overlay = document.getElementById('minigame-overlay');
+    if (!overlay) return;
+
+    // Build zone gradient
+    const zones = config.zones;
+    const gradientParts = zones.map(z => `${z.color} ${z.start}%, ${z.color} ${z.end}%`);
+    const gradient = `linear-gradient(to right, ${gradientParts.join(', ')})`;
+
+    let html = `<div class="minigame-box">`;
+    html += `<div class="minigame-icon">${ico(config.icon || 'ops', 'ico-xl')}</div>`;
+    html += `<h2 class="minigame-title">${config.title}</h2>`;
+    html += `<p class="minigame-desc">${config.desc}</p>`;
+    html += `<p class="minigame-op-name">${opData.name}</p>`;
+    html += `<div class="minigame-meter" style="background:${gradient};">`;
+    html += `<div class="minigame-needle" id="minigame-needle"></div>`;
+    html += `</div>`;
+    html += `<div class="minigame-zone-labels">`;
+    for (const z of zones) {
+      const width = z.end - z.start;
+      html += `<span style="width:${width}%;color:${z.color}">${z.label}</span>`;
+    }
+    html += `</div>`;
+    html += `<div class="minigame-actions">`;
+    html += `<button class="btn btn-primary minigame-lock-btn" id="minigame-lock-btn">LOCK IN</button>`;
+    html += `<button class="btn btn-sm" id="minigame-cancel-btn">Cancel</button>`;
+    html += `</div>`;
+    html += `</div>`;
+
+    const content = document.getElementById('minigame-content');
+    content.innerHTML = html;
+    overlay.classList.remove('hidden');
+
+    // Start needle animation
+    this.miniGamePos = 0;
+    this.miniGameDir = 1;
+    this.miniGameSpeed = config.speed;
+    this.miniGameRunning = true;
+
+    const needle = document.getElementById('minigame-needle');
+    const animate = () => {
+      if (!this.miniGameRunning) return;
+      this.miniGamePos += this.miniGameSpeed * this.miniGameDir;
+      if (this.miniGamePos >= 100) { this.miniGamePos = 100; this.miniGameDir = -1; }
+      if (this.miniGamePos <= 0) { this.miniGamePos = 0; this.miniGameDir = 1; }
+      if (needle) needle.style.left = this.miniGamePos + '%';
+      this.miniGameFrame = requestAnimationFrame(animate);
+    };
+    this.miniGameFrame = requestAnimationFrame(animate);
+
+    // Bind buttons
+    document.getElementById('minigame-lock-btn').addEventListener('click', () => {
+      this.miniGameRunning = false;
+      if (this.miniGameFrame) cancelAnimationFrame(this.miniGameFrame);
+      this.engine.completeMiniGame(this.miniGamePos);
+    }, { once: true });
+
+    document.getElementById('minigame-cancel-btn').addEventListener('click', () => {
+      this.miniGameRunning = false;
+      if (this.miniGameFrame) cancelAnimationFrame(this.miniGameFrame);
+      this.engine.cancelMiniGame();
+    }, { once: true });
+  }
+
+  hideMiniGame() {
+    this.miniGameRunning = false;
+    if (this.miniGameFrame) cancelAnimationFrame(this.miniGameFrame);
+    const overlay = document.getElementById('minigame-overlay');
     if (overlay) overlay.classList.add('hidden');
   }
 
