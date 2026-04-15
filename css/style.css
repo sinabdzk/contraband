@@ -990,8 +990,11 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 28px;
-  min-width: 360px;
-  max-width: 500px;
+  min-width: 320px;
+  max-width: 640px;
+  width: 90vw;
+  max-height: 85vh;
+  overflow-y: auto;
   box-shadow: var(--shadow);
 }
 #modal-title {
@@ -1470,21 +1473,23 @@ body {
 }
 
 .candidate-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .candidate-card {
   background: var(--bg-body);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 14px;
+  padding: 14px 16px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 4px 12px;
+  align-items: center;
 }
 
 .candidate-card:hover {
@@ -1495,13 +1500,15 @@ body {
 
 .candidate-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 8px;
+  grid-column: 1;
+  grid-row: 1;
 }
 
 .candidate-name {
   font-family: 'Oswald', sans-serif;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
 }
 
@@ -1509,8 +1516,10 @@ body {
   font-size: 11px;
   color: var(--text-muted);
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  gap: 10px;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  grid-row: 2;
 }
 
 .candidate-stats em {
@@ -1518,9 +1527,17 @@ body {
   font-style: normal;
 }
 
+.candidate-traits {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: end;
+}
+
 .candidate-hire {
-  margin-top: auto;
-  width: 100%;
+  grid-column: 2;
+  grid-row: 1;
+  width: auto;
+  white-space: nowrap;
 }
 
 /* ============================================================
@@ -1832,15 +1849,13 @@ body {
 }
 
 /* ============================================================
-   TERRITORY MAP (visual grid)
+   TERRITORY MAP
    ============================================================ */
 
 .territory-map-grid {
   display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  grid-template-rows: repeat(4, minmax(130px, auto));
-  gap: 6px;
-  padding: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
 }
 
 .map-district {
@@ -1850,14 +1865,12 @@ body {
   border-radius: 10px;
   overflow: hidden;
   cursor: default;
-  transition: all 0.3s ease;
-  min-height: 130px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .map-district:hover {
   border-color: var(--accent-gold);
-  z-index: 2;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.3);
 }
 
 .map-district.locked {
@@ -1893,11 +1906,10 @@ body {
 .district-content {
   position: relative;
   z-index: 1;
-  padding: 10px 12px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  gap: 4px;
+  gap: 6px;
 }
 
 .district-header {
@@ -1908,7 +1920,7 @@ body {
 
 .district-name {
   font-family: 'Oswald', sans-serif;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -1918,7 +1930,7 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1px;
-  padding: 1px 6px;
+  padding: 2px 8px;
   border-radius: 4px;
   font-family: 'Share Tech Mono', monospace;
 }
@@ -1928,56 +1940,79 @@ body {
 .district-diff.diff-hard { background: rgba(248, 113, 113, 0.15); color: #f87171; }
 .district-diff.diff-extreme { background: rgba(167, 139, 250, 0.15); color: #a78bfa; }
 
+.district-control-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.district-control-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-body);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.district-control-bar-fill {
+  height: 100%;
+  background: var(--accent-green);
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
 .district-control-text {
   font-family: 'Share Tech Mono', monospace;
-  font-size: 20px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--accent-green);
+  min-width: 36px;
+  text-align: right;
 }
 
 .district-bonuses {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 4px;
 }
 
 .district-bonus {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--accent-gold);
   background: rgba(255, 215, 0, 0.08);
-  padding: 1px 5px;
-  border-radius: 3px;
+  padding: 2px 7px;
+  border-radius: 4px;
 }
 
-.district-btn {
-  margin-top: auto;
+.district-action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 2px;
 }
 
 .district-expanding {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--accent-gold);
   display: flex;
   align-items: center;
-  gap: 3px;
-  margin-top: auto;
+  gap: 4px;
 }
 
 .district-locked-text {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-muted);
   display: flex;
   align-items: center;
-  gap: 3px;
-  margin-top: auto;
+  gap: 4px;
 }
 
 .district-owned {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--accent-green);
   display: flex;
   align-items: center;
-  gap: 3px;
-  margin-top: auto;
+  gap: 4px;
 }
 
 /* ============================================================
@@ -2093,13 +2128,13 @@ body {
    ============================================================ */
 
 @media (max-width: 900px) {
-  .candidate-grid {
-    grid-template-columns: 1fr;
-  }
   #dilemma-content {
     padding: 20px;
   }
   .dilemma-title {
     font-size: 22px;
+  }
+  .territory-map-grid {
+    grid-template-columns: 1fr;
   }
 }

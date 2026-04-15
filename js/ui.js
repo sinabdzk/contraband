@@ -335,14 +335,11 @@ export class UI {
       const expanding = tData ? tData.expanding : false;
       const canExpand = s.level >= terr.levelReq;
       const isOwned = control >= 100;
-      const pos = TERRITORY_MAP[terr.id];
 
       const diffClass = `diff-${terr.difficulty}`;
       const cardClass = `map-district ${isOwned ? 'controlled' : ''} ${!canExpand ? 'locked' : ''} ${expanding ? 'expanding' : ''}`;
 
-      const style = pos ? `grid-column: ${pos.col}; grid-row: ${pos.row};` : '';
-
-      html += `<div class="${cardClass}" style="${style}" data-terr="${terr.id}">`;
+      html += `<div class="${cardClass}" data-terr="${terr.id}">`;
 
       // Control fill overlay
       html += `<div class="district-fill" style="height:${control}%"></div>`;
@@ -353,7 +350,11 @@ export class UI {
       html += `<span class="district-diff ${diffClass}">${terr.difficulty}</span>`;
       html += `</div>`;
 
-      html += `<div class="district-control-text">${control}%${expanding ? ' ▲' : ''}</div>`;
+      // Progress bar + percentage
+      html += `<div class="district-control-row">`;
+      html += `<div class="district-control-bar"><div class="district-control-bar-fill" style="width:${control}%"></div></div>`;
+      html += `<span class="district-control-text">${control}%</span>`;
+      html += `</div>`;
 
       // Bonuses
       html += `<div class="district-bonuses">`;
@@ -363,14 +364,15 @@ export class UI {
       html += `</div>`;
 
       // Action
+      html += `<div class="district-action">`;
       if (canExpand && !isOwned) {
         if (!tData) {
           const costText = Object.entries(terr.costToExpand)
             .map(([res, val]) => `${res === 'dirtyMoney' ? '$' : res === 'cleanMoney' ? 'Clean $' : ''}${e.formatNum(val)}${res === 'influence' ? ' inf' : ''}`)
             .join(', ');
-          html += `<button class="btn btn-primary btn-xs district-btn" onclick="window._engine.expandTerritory('${terr.id}'); window._ui.renderTerritoryTab();">Expand (${costText})</button>`;
+          html += `<button class="btn btn-primary btn-xs" onclick="window._engine.expandTerritory('${terr.id}'); window._ui.renderTerritoryTab();">Expand (${costText})</button>`;
         } else if (!expanding) {
-          html += `<button class="btn btn-xs district-btn" onclick="window._engine.expandTerritory('${terr.id}'); window._ui.renderTerritoryTab();">Resume</button>`;
+          html += `<button class="btn btn-xs" onclick="window._engine.expandTerritory('${terr.id}'); window._ui.renderTerritoryTab();">Resume</button>`;
         } else {
           html += `<span class="district-expanding">${ico('clock','ico-sm ico-color-gold')} Expanding...</span>`;
         }
@@ -379,6 +381,7 @@ export class UI {
       } else {
         html += `<span class="district-owned">${ico('check','ico-sm ico-color-green')} Controlled</span>`;
       }
+      html += `</div>`;
 
       html += `</div>`;
       html += `</div>`;
@@ -794,25 +797,21 @@ export class UI {
       html += `<div class="candidate-header">`;
       html += `<span class="candidate-name">${c.name}</span>`;
       html += `<span class="crew-type ${type?.color || ''}">${type?.name || c.type}</span>`;
-      html += `</div>`;
-      html += `<div class="candidate-stats">`;
-      html += `<div>Level: <strong>${c.level}</strong></div>`;
-      html += `<div>Loyalty: <strong>${c.loyalty}%</strong></div>`;
-      html += `<div>Bonus: <em>${type?.desc || ''}</em></div>`;
-      html += `</div>`;
       if (c.traits && c.traits.length > 0) {
-        html += `<div class="candidate-traits">`;
         for (const traitId of c.traits) {
           const trait = CREW_TRAITS.find(t => t.id === traitId);
           if (trait) {
             html += `<span class="trait-badge" style="border-color:${trait.color};color:${trait.color}" title="${trait.desc}">${trait.name}</span>`;
           }
         }
-        html += `</div>`;
-      } else {
-        html += `<div class="candidate-traits"><span class="trait-badge" style="border-color:#666;color:#666">No traits</span></div>`;
       }
+      html += `</div>`;
       html += `<button class="btn btn-primary btn-sm candidate-hire">HIRE</button>`;
+      html += `<div class="candidate-stats">`;
+      html += `<div>Lv <strong>${c.level}</strong></div>`;
+      html += `<div>Loyalty <strong>${c.loyalty}%</strong></div>`;
+      html += `<div><em>${type?.desc || ''}</em></div>`;
+      html += `</div>`;
       html += `</div>`;
     });
 
